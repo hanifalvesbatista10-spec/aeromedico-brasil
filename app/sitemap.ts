@@ -1,0 +1,2 @@
+import type { MetadataRoute } from "next";
+export default function sitemap(): MetadataRoute.Sitemap { const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://aeromedico-brasil.com.br"; return [{ url: base, changeFrequency: "weekly", priority: 1 }, { url: `${base}/politica-de-privacidade`, changeFrequency: "yearly", priority: .2 }, { url: `${base}/termos`, changeFrequency: "yearly", priority: .2 }]; }

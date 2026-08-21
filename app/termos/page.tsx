@@ -1,0 +1,3 @@
+import Link from "next/link";
+export const metadata = { title: "Termos de Uso" };
+export default function TermsPage() { return <main className="min-h-screen bg-[#f7f9fc] px-5 py-16"><article className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10"><Link href="/" className="text-sm font-semibold text-[#1175d1]">← Voltar ao site</Link><h1 className="mt-8 text-4xl font-black">Termos de Uso</h1><p className="mt-5 text-sm leading-7 text-slate-600">Este documento é um modelo inicial e deverá ser revisado antes do lançamento. Ele deve detalhar regras de acesso, propriedade intelectual, pagamentos, cancelamentos, certificados e limites de responsabilidade aplicáveis a cada produto.</p></article></main>; }
