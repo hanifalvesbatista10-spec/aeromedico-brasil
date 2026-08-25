@@ -6,6 +6,8 @@ Plataforma institucional e comercial construída com Next.js, TypeScript, Tailwi
 
 - Landing page responsiva com hero, atuação, biblioteca gratuita, cursos, prova social gerenciável, FAQ e páginas legais.
 - Painel administrativo com dashboard, conteúdo, materiais, cursos, leads, relatórios e configurações.
+- CMS funcional para publicar o Hero, a seção institucional e a chamada final consumidos pela landing page.
+- CRUD funcional de cursos, upload/remoção de PDFs no Storage e consulta/exportação CSV de leads.
 - Autenticação administrativa preparada para Supabase Auth.
 - RLS e estrutura SQL para administradores, conteúdo, materiais, cursos, leads e eventos.
 - Captura de leads com fallback demonstrativo quando o Supabase ainda não está configurado.
@@ -53,6 +55,6 @@ Nunca publique chaves secretas no GitHub. Configure-as no ambiente de hospedagem
 - `npm run lint` — validação estática
 - `npm test` — build e testes de HTML renderizado
 
-## Conteúdo demonstrativo
+## Estado da implementação
 
-Preços, cursos, leads e indicadores são dados de demonstração e devem ser substituídos pelo administrador antes do lançamento comercial. Depoimentos e logos não foram inventados: a interface reserva o espaço para conteúdo real e autorizado.
+Cursos, materiais, leads e os textos principais já usam as APIs administrativas e o Supabase quando as variáveis de ambiente estão configuradas. Indicadores avançados, relatórios e alguns conteúdos editoriais permanecem como dados iniciais até as próximas etapas de integração. Depoimentos e empresas parceiras só devem ser publicados com conteúdo real e autorizado.

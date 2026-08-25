@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/services/auth";
 
+export async function GET() {
+  const session = await getAdminSession();
+  if (!session.configured) return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
+  if (!session.authorized || !session.supabase) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const { data, error } = await session.supabase.from("materials").select("*").order("created_at", { ascending: false });
+  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ data });
+}
+
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session.authorized || !session.supabase) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
