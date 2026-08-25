@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Reveal } from "@/components/reveal";
 import { formatDate } from "@/lib/utils/format-date";
 import type { ContentPost } from "@/lib/types";
 
@@ -13,9 +14,11 @@ export function ContentHighlights({ posts }: { posts: ContentPost[] }) {
   return (
     <section className="border-b border-border bg-background">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
-        <h2 className="text-h2 font-heading font-bold text-navy-950">
-          Conteúdo científico e educacional
-        </h2>
+        <Reveal>
+          <h2 className="text-h2 font-heading font-bold text-navy-950">
+            Conteúdo científico e educacional
+          </h2>
+        </Reveal>
 
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {recent.map((post) => {

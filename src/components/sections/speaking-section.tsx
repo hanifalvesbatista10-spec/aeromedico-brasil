@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { Reveal } from "@/components/reveal";
 import { cn } from "@/lib/utils";
 import type { SpeakingTopic } from "@/lib/types";
 
@@ -8,7 +9,7 @@ export function SpeakingSection({ topics }: { topics: SpeakingTopic[] }) {
     <section className="border-b border-border bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <div className="lg:grid lg:grid-cols-3 lg:gap-16">
-          <div>
+          <Reveal>
             <h2 className="text-h2 font-heading font-bold text-navy-950">
               Palestras e treinamentos
             </h2>
@@ -22,7 +23,7 @@ export function SpeakingSection({ topics }: { topics: SpeakingTopic[] }) {
             >
               Solicitar proposta
             </Link>
-          </div>
+          </Reveal>
 
           <ul className="mt-10 divide-y divide-gray-300 border-t border-gray-300 lg:col-span-2 lg:mt-0">
             {topics.map((topic) => (

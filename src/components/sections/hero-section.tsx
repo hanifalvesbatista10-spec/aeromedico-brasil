@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { buttonVariants } from "@/components/ui/button";
+import { Reveal } from "@/components/reveal";
 import { cn } from "@/lib/utils";
 import type { Profile, SocialProofStat } from "@/lib/types";
 
@@ -14,7 +15,7 @@ export function HeroSection({
   return (
     <section className="relative overflow-hidden border-b border-border bg-background">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24 lg:px-8">
-        <div>
+        <Reveal>
           <p className="text-sm font-semibold tracking-wide text-navy-700 uppercase">
             {profile.name} · {profile.role}
           </p>
@@ -48,7 +49,7 @@ export function HeroSection({
               no Instagram
             </p>
           )}
-        </div>
+        </Reveal>
 
         <div className="relative aspect-4/3 overflow-hidden rounded-lg bg-navy-950 lg:aspect-square">
           <TechnicalLines className="absolute inset-0 h-full w-full text-sky-500/25" />

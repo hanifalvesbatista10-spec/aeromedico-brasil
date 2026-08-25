@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { buttonVariants } from "@/components/ui/button";
+import { Reveal } from "@/components/reveal";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
@@ -25,7 +26,7 @@ export function AboutSection({ profile }: { profile: Profile }) {
           )}
         </div>
 
-        <div>
+        <Reveal>
           <h2 className="text-h2 font-heading font-bold text-navy-950">
             Experiência, educação e propósito no atendimento aeromédico.
           </h2>
@@ -39,7 +40,7 @@ export function AboutSection({ profile }: { profile: Profile }) {
           >
             Conheça a trajetória
           </Link>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

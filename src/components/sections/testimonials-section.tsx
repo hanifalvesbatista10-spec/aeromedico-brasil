@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { EmptyState } from "@/components/empty-state";
+import { Reveal } from "@/components/reveal";
 import type { Testimonial } from "@/lib/types";
 
 export function TestimonialsSection({
@@ -12,9 +13,11 @@ export function TestimonialsSection({
   return (
     <section className="border-b border-border bg-background">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
-        <h2 className="text-h2 font-heading font-bold text-navy-950">
-          O que dizem os profissionais formados
-        </h2>
+        <Reveal>
+          <h2 className="text-h2 font-heading font-bold text-navy-950">
+            O que dizem os profissionais formados
+          </h2>
+        </Reveal>
 
         {authorized.length > 0 ? (
           <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,3 +1,5 @@
+import { Reveal } from "@/components/reveal";
+
 const pillars = [
   {
     title: "Educação profissional",
@@ -35,13 +37,16 @@ export function ExpertisePillars() {
   return (
     <section className="border-b border-border bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
-        <h2 className="max-w-2xl text-h2 font-heading font-bold text-navy-950">
-          Áreas de atuação
-        </h2>
+        <Reveal>
+          <h2 className="max-w-2xl text-h2 font-heading font-bold text-navy-950">
+            Áreas de atuação
+          </h2>
+        </Reveal>
         <div className="mt-10 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {pillars.map((pillar, index) => (
-            <div
+            <Reveal
               key={pillar.title}
+              delay={index * 0.05}
               className="border-l border-gray-300 pl-5"
             >
               <span className="font-heading text-sm text-gray-300">
@@ -53,7 +58,7 @@ export function ExpertisePillars() {
               <p className="mt-2 text-sm text-gray-600">
                 {pillar.description}
               </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
