@@ -10,6 +10,7 @@ import { InstagramCommunity } from "@/components/sections/instagram-community";
 import { TestimonialsSection } from "@/components/sections/testimonials-section";
 import { FAQSection } from "@/components/sections/faq-section";
 import { FinalCTA } from "@/components/sections/final-cta";
+import { buildPersonJsonLd, buildOrganizationJsonLd } from "@/lib/seo/json-ld";
 
 export default async function Home() {
   const repositories = getRepositories();
@@ -25,8 +26,19 @@ export default async function Home() {
 
   const followersStat = settings.stats.find((stat) => stat.id === "followers");
 
+  const personJsonLd = buildPersonJsonLd(settings.profile);
+  const organizationJsonLd = buildOrganizationJsonLd(settings);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <HeroSection profile={settings.profile} followersStat={followersStat} />
       <AuthorityStrip stats={settings.stats} />
       <AboutSection profile={settings.profile} />

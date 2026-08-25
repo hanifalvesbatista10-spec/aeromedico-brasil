@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getRepositories } from "@/lib/repositories";
+import { buildCourseJsonLd } from "@/lib/seo/json-ld";
 import type { ProgramFormat, ProgramStatus } from "@/lib/types";
 
 const formatLabels: Record<ProgramFormat, string> = {
@@ -46,9 +47,14 @@ export default async function FormacaoPage({
   const { slug } = await params;
   const program = await getRepositories().programs.getBySlug(slug);
   if (!program) notFound();
+  const courseJsonLd = buildCourseJsonLd(program);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
+      />
       <p className="text-sm font-semibold tracking-wide text-navy-700 uppercase">
         {program.category}
       </p>

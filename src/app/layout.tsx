@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { fontHeading, fontBody } from "@/lib/fonts";
+import { AnalyticsScripts } from "@/components/analytics-scripts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +21,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${fontHeading.variable} ${fontBody.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <AnalyticsScripts />
+      </body>
     </html>
   );
 }

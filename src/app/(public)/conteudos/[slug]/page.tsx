@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { formatDate } from "@/lib/utils/format-date";
+import { buildArticleJsonLd } from "@/lib/seo/json-ld";
 
 export async function generateStaticParams() {
   const posts = await getRepositories().contentPosts.list();
@@ -37,9 +38,14 @@ export default async function ConteudoPage({
   if (post.kind === "link-externo" && post.externalUrl) {
     redirect(post.externalUrl);
   }
+  const articleJsonLd = buildArticleJsonLd(post);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <p className="text-sm font-semibold tracking-wide text-navy-700 uppercase">
         {post.category}
       </p>
