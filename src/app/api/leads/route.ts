@@ -1,0 +1,26 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { leadSchema } from "@/lib/validation/lead";
+import { getRepositories } from "@/lib/repositories";
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const parsed = leadSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: z.treeifyError(parsed.error) },
+      { status: 400 }
+    );
+  }
+
+  const lead = await getRepositories().leads.create({
+    ...parsed.data,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    status: "novo",
+    notes: null,
+  });
+
+  return NextResponse.json({ ok: true, id: lead.id }, { status: 201 });
+}
