@@ -36,7 +36,11 @@ export function MobileMenu({ primaryCta }: { primaryCta: CTAConfig }) {
           className="flex flex-col gap-1 px-4"
         >
           {navLinks.map((link) => (
-            <SheetClose key={link.href} render={<Link href={link.href} />}>
+            <SheetClose
+              key={link.href}
+              nativeButton={false}
+              render={<Link href={link.href} />}
+            >
               <span className="block rounded-md px-3 py-3 text-base font-medium text-foreground hover:bg-muted">
                 {link.label}
               </span>
@@ -45,6 +49,7 @@ export function MobileMenu({ primaryCta }: { primaryCta: CTAConfig }) {
         </nav>
         <div className="mt-auto flex flex-col gap-2 p-4">
           <SheetClose
+            nativeButton={false}
             render={<Link href={primaryCta.href} />}
             className={cn(buttonVariants({ size: "lg" }), "w-full")}
           >

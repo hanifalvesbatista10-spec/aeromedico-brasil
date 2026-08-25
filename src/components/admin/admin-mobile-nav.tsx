@@ -37,7 +37,11 @@ export function AdminMobileNav() {
             const Icon = item.icon;
 
             return (
-              <SheetClose key={item.href} render={<Link href={item.href} />}>
+              <SheetClose
+                key={item.href}
+                nativeButton={false}
+                render={<Link href={item.href} />}
+              >
                 <span
                   className={cn(
                     "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium",
