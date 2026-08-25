@@ -22,7 +22,7 @@ export function MobileMenu({ primaryCta }: { primaryCta: CTAConfig }) {
         aria-label="Abrir menu de navegação"
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon" }),
-          "md:hidden"
+          "lg:hidden"
         )}
       >
         <Menu aria-hidden="true" />

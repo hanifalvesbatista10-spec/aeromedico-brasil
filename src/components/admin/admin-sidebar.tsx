@@ -2,26 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  GraduationCap,
-  Newspaper,
-  Quote,
-  Mic,
-  Users,
-  Settings,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const items = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/formacoes", label: "Formações", icon: GraduationCap },
-  { href: "/admin/conteudos", label: "Conteúdos", icon: Newspaper },
-  { href: "/admin/depoimentos", label: "Depoimentos", icon: Quote },
-  { href: "/admin/palestras", label: "Palestras", icon: Mic },
-  { href: "/admin/leads", label: "Leads", icon: Users },
-  { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
-];
+import { adminNavItems } from "./admin-nav-items";
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -29,12 +11,12 @@ export function AdminSidebar() {
   return (
     <nav
       aria-label="Navegação do painel administrativo"
-      className="flex h-full w-60 shrink-0 flex-col gap-1 border-r border-border bg-background p-4"
+      className="hidden h-full w-60 shrink-0 flex-col gap-1 border-r border-border bg-background p-4 md:flex"
     >
       <p className="mb-4 px-2 font-heading text-sm font-bold text-navy-950">
         Aeromédico Brasil
       </p>
-      {items.map((item) => {
+      {adminNavItems.map((item) => {
         const active =
           item.href === "/admin"
             ? pathname === "/admin"

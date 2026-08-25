@@ -49,7 +49,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
             <li>
               <a
                 href={`mailto:${settings.email}`}
-                className="hover:text-navy-950"
+                className="break-words hover:text-navy-950"
               >
                 {settings.email}
               </a>

@@ -2,23 +2,15 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-
-const titles: Record<string, string> = {
-  "/admin": "Dashboard",
-  "/admin/formacoes": "Formações",
-  "/admin/conteudos": "Conteúdos",
-  "/admin/depoimentos": "Depoimentos",
-  "/admin/palestras": "Palestras",
-  "/admin/leads": "Leads",
-  "/admin/configuracoes": "Configurações",
-};
+import { AdminMobileNav } from "./admin-mobile-nav";
+import { adminTitles } from "./admin-nav-items";
 
 function resolveTitle(pathname: string): string {
-  if (titles[pathname]) return titles[pathname];
-  const match = Object.keys(titles)
+  if (adminTitles[pathname]) return adminTitles[pathname];
+  const match = Object.keys(adminTitles)
     .filter((path) => path !== "/admin" && pathname.startsWith(path))
     .sort((a, b) => b.length - a.length)[0];
-  return match ? titles[match] : "Painel";
+  return match ? adminTitles[match] : "Painel";
 }
 
 export function AdminHeader() {
@@ -32,10 +24,13 @@ export function AdminHeader() {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-background px-6">
-      <h1 className="font-heading text-lg font-semibold text-navy-950">
-        {resolveTitle(pathname)}
-      </h1>
+    <header className="flex h-16 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
+      <div className="flex items-center gap-2">
+        <AdminMobileNav />
+        <h1 className="font-heading text-lg font-semibold text-navy-950">
+          {resolveTitle(pathname)}
+        </h1>
+      </div>
       <Button variant="outline" size="sm" onClick={handleLogout}>
         Sair
       </Button>

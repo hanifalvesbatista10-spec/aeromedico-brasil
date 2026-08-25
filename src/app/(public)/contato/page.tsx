@@ -28,7 +28,7 @@ export default async function ContatoPage() {
         <div>
           <dt className="font-semibold text-navy-950">E-mail</dt>
           <dd>
-            <a href={`mailto:${settings.email}`} className="hover:underline">
+            <a href={`mailto:${settings.email}`} className="break-words hover:underline">
               {settings.email}
             </a>
           </dd>
