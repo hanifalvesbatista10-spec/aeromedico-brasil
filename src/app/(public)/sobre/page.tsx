@@ -21,17 +21,18 @@ export default async function SobrePage() {
       </h1>
       <p className="mt-2 text-base text-gray-600">{profile.role}</p>
 
-      <div className="relative mt-10 aspect-video overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative mt-10 aspect-3/4 max-w-md overflow-hidden rounded-lg bg-navy-950 sm:aspect-video sm:max-w-none">
         {profile.photoUrl ? (
           <Image
             src={profile.photoUrl}
             alt={profile.name}
             fill
-            className="object-cover"
+            className="object-contain"
+            sizes="(min-width: 640px) 768px, 448px"
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="font-heading text-lg font-semibold text-gray-600">
+            <span className="font-heading text-lg font-semibold text-white">
               Foto profissional em breve
             </span>
           </div>

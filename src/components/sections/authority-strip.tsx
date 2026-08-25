@@ -12,7 +12,7 @@ export function AuthorityStrip({ stats }: { stats: SocialProofStat[] }) {
             <p className="font-heading text-2xl font-bold text-white">
               {stat.value}
             </p>
-            <p className="mt-1 text-sm text-sky-100/70">{stat.label}</p>
+            <p className="mt-1 text-sm text-white/70">{stat.label}</p>
           </Reveal>
         ))}
       </div>

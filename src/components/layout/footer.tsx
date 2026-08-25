@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AtSign } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { navLinks } from "./nav-links";
 import type { SiteSettings } from "@/lib/types";
 
@@ -10,9 +11,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
     <footer className="border-t border-border bg-gray-50">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="md:col-span-2">
-          <p className="font-heading text-lg font-bold text-navy-950">
-            Aeromédico Brasil
-          </p>
+          <Logo size={32} />
           <p className="mt-3 max-w-sm text-sm text-gray-600">
             {settings.profile.shortBio}
           </p>

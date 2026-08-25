@@ -122,14 +122,14 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
         </h2>
         <MediaUploader
           label="Logomarca oficial"
-          value={null}
+          value="/brand/logo.jpg"
           onChange={() => {
-            /* aguardando arquivo oficial — ver README */
+            /* troca de arquivo nesta fase não persiste — ver README */
           }}
         />
         <p className="text-xs text-gray-600">
-          Enquanto a logomarca oficial não é enviada, o site usa o wordmark
-          tipográfico “Aeromédico Brasil”.
+          Logomarca oficial em uso, a partir do material de marca
+          fornecido. Envie um novo arquivo aqui para substituir.
         </p>
       </section>
 

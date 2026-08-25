@@ -9,17 +9,17 @@ export function AboutSection({ profile }: { profile: Profile }) {
   return (
     <section className="border-b border-border bg-background">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24 lg:px-8">
-        <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 lg:order-first">
+        <div className="relative aspect-square overflow-hidden rounded-lg bg-navy-950 lg:order-first">
           {profile.photoUrl ? (
             <Image
               src={profile.photoUrl}
               alt={profile.name}
               fill
-              className="object-cover"
+              className="object-contain"
             />
           ) : (
             <div className="flex h-full items-center justify-center px-8 text-center">
-              <span className="font-heading text-xl font-semibold text-gray-600">
+              <span className="font-heading text-xl font-semibold text-white">
                 Aeromédico Brasil
               </span>
             </div>

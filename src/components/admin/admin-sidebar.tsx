@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { adminNavItems } from "./admin-nav-items";
 
@@ -13,9 +14,9 @@ export function AdminSidebar() {
       aria-label="Navegação do painel administrativo"
       className="hidden h-full w-60 shrink-0 flex-col gap-1 border-r border-border bg-background p-4 md:flex"
     >
-      <p className="mb-4 px-2 font-heading text-sm font-bold text-navy-950">
-        Aeromédico Brasil
-      </p>
+      <div className="mb-4 px-2">
+        <Logo size={28} wordmarkClassName="text-sm" />
+      </div>
       {adminNavItems.map((item) => {
         const active =
           item.href === "/admin"

@@ -79,12 +79,17 @@ src/
 Nada abaixo foi inventado; são lacunas deixadas propositalmente para
 serem preenchidas com informação real antes de publicar o site.
 
-**Identidade visual**
-- Logomarca oficial (arquivo) — o site usa um wordmark tipográfico
-  "Aeromédico Brasil" até você enviar o arquivo.
-- Confirmar se a paleta azul-marinho/técnica definida em
-  `src/app/globals.css` bate com a identidade oficial, ou ajustar a
-  partir do arquivo da logo.
+**Identidade visual** — resolvida
+- Logomarca oficial em uso (`public/brand/logo.jpg`) e foto profissional
+  de Lucio Macêdo em uso (`public/brand/lucio-macedo.png`), a partir do
+  material de marca fornecido.
+- Paleta em `src/app/globals.css` extraída por amostragem de pixel do
+  próprio material: vermelho da logo `#c80008` (`--alert-600`) e o
+  azul-marinho de contraste `#1e2a44` (`--navy-900`), com a escala
+  `--navy-950/700/500` derivada da mesma cor (mesmo matiz, luminosidade
+  ajustada). Nenhuma cor foi "chutada" visualmente.
+- Há também dois vídeos em `aeromedicon images/` (piloto/traje de voo)
+  ainda não usados — candidatos a b-roll/hero em vídeo numa fase futura.
 
 **Conteúdo real** (hoje em `src/data/*.ts`, marcado como
 `isDemoContent: true` onde se aplica)
@@ -93,8 +98,6 @@ serem preenchidas com informação real antes de publicar o site.
 - Artigos/vídeos reais em `/conteudos`.
 - Depoimentos reais e autorizados — a seção está propositalmente vazia
   (nenhum depoimento foi inventado).
-- Fotografias profissionais de Lucio Macêdo e de campo — `photoUrl` está
-  `null` em todo o projeto.
 
 **Contato**
 - `whatsappUrl` em `src/data/settings.ts` está com placeholder
@@ -122,10 +125,9 @@ serem preenchidas com informação real antes de publicar o site.
 
 ## Próximos passos sugeridos
 
-1. Enviar logomarca oficial e fotos reais.
-2. Substituir o conteúdo demonstrativo por formações, conteúdos e
+1. Substituir o conteúdo demonstrativo por formações, conteúdos e
    depoimentos reais via `/admin`.
-3. Configurar Supabase e trocar as implementações em
+2. Configurar Supabase e trocar as implementações em
    `src/lib/repositories/mock/*` por equivalentes Supabase (a interface
    em `src/lib/repositories/types.ts` já define o contrato).
-4. Revisão jurídica das páginas legais.
+3. Revisão jurídica das páginas legais.

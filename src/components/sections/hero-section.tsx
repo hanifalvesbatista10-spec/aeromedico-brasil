@@ -52,13 +52,13 @@ export function HeroSection({
         </Reveal>
 
         <div className="relative aspect-4/3 overflow-hidden rounded-lg bg-navy-950 lg:aspect-square">
-          <TechnicalLines className="absolute inset-0 h-full w-full text-sky-500/25" />
+          <TechnicalLines className="absolute inset-0 h-full w-full text-navy-500/25" />
           {profile.photoUrl ? (
             <Image
               src={profile.photoUrl}
               alt={profile.name}
               fill
-              className="object-cover"
+              className="object-contain"
               priority
             />
           ) : (
@@ -66,7 +66,7 @@ export function HeroSection({
               <span className="font-heading text-2xl font-bold tracking-tight text-white">
                 Aeromédico Brasil
               </span>
-              <span className="text-sm text-sky-100/80">
+              <span className="text-sm text-navy-500/80">
                 Foto profissional em breve
               </span>
             </div>

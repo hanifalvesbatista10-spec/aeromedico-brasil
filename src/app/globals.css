@@ -72,11 +72,12 @@
 
 :root {
   /* Cores cruas da marca — únicos valores hardcoded; tudo consome via var() */
-  --navy-950: #071322;
-  --navy-900: #0c1f36;
-  --navy-700: #1a3a5c;
-  --navy-500: #2c5c8f;
-  --alert-600: #dc2626;
+  /* Extraídas do material oficial da marca (logomarca + foto institucional) */
+  --navy-950: #0e1421;
+  --navy-900: #1e2a44;
+  --navy-700: #32456d;
+  --navy-500: #486095;
+  --alert-600: #c80008;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

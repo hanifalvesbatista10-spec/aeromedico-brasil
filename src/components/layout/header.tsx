@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 import { MobileMenu } from "./mobile-menu";
 import { navLinks } from "./nav-links";
 import { cn } from "@/lib/utils";
@@ -30,11 +31,8 @@ export function Header({ primaryCta }: { primaryCta: CTAConfig }) {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="font-heading text-lg font-bold tracking-tight text-navy-950"
-        >
-          Aeromédico Brasil
+        <Link href="/" className="shrink-0">
+          <Logo size={36} wordmarkClassName="hidden sm:inline" />
         </Link>
 
         <nav
