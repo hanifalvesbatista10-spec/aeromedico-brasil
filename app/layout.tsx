@@ -27,8 +27,9 @@ export const metadata: Metadata = {
     images: ["/og.jpg"],
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/aeromedico-icon.jpg",
+    shortcut: "/aeromedico-icon.jpg",
+    apple: "/aeromedico-icon.jpg",
   },
 };
 

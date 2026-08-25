@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Plane, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 
 const navigation = [
   ["Atuação", "#atuacao"],
@@ -17,11 +18,11 @@ const navigation = [
 export function Header() {
   const [open, setOpen] = useState(false);
   return (
-    <header className="absolute inset-x-0 top-0 z-50 border-b border-white/10 bg-[#04101d]/70 backdrop-blur-xl">
+    <header className="absolute inset-x-0 top-0 z-50 border-b border-white/10 bg-[#03111d]/78 backdrop-blur-xl">
       <div className="page-shell flex h-20 items-center justify-between">
         <Link href="/" className="focus-ring flex items-center gap-3 rounded-lg text-white" aria-label="Aeromédico Brasil — início">
-          <span className="grid size-11 place-items-center rounded-xl border border-[#38c5ea]/30 bg-[#0c2944] text-[#38c5ea]"><Plane className="size-6 -rotate-12" /></span>
-          <span className="leading-none"><strong className="display-font block text-lg tracking-[.08em]">AEROMÉDICO</strong><span className="text-[10px] font-semibold tracking-[.42em] text-[#8fe9ff]">BRASIL</span></span>
+          <BrandLogo className="size-12 shrink-0 border-2 border-white/15 shadow-lg" priority />
+          <span className="leading-none"><strong className="display-font block text-lg tracking-[.08em]">AEROMÉDICO</strong><span className="text-[10px] font-semibold tracking-[.42em] text-[#ef9a9d]">BRASIL</span></span>
         </Link>
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Navegação principal">
           {navigation.map(([label, href]) => <Link key={href} href={href} className="focus-ring rounded text-sm font-medium text-slate-300 transition hover:text-white">{label}</Link>)}
@@ -35,7 +36,7 @@ export function Header() {
         </button>
       </div>
       {open && (
-        <div className="border-t border-white/10 bg-[#07182b] px-4 py-5 lg:hidden">
+        <div className="border-t border-white/10 bg-[#071b2c] px-4 py-5 lg:hidden">
           <nav className="mx-auto flex max-w-lg flex-col gap-2">
             {navigation.map(([label, href]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="focus-ring rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">{label}</Link>)}
             <Link href="/admin/login" className="focus-ring mt-2 rounded-xl border border-white/15 px-4 py-3 text-center text-sm font-semibold text-white">Área do ADM</Link>

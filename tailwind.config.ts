@@ -5,7 +5,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        aeromed: { navy: "#07182b", blue: "#1175d1", cyan: "#38c5ea", orange: "#ff7a1a" },
+        aeromed: { navy: "#071b2c", blue: "#28688f", red: "#c9060a", wine: "#a9080d", ice: "#acd6eb" },
       },
     },
   },
