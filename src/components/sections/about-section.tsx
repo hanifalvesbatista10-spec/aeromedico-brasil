@@ -7,7 +7,7 @@ import type { Profile } from "@/lib/types";
 
 export function AboutSection({ profile }: { profile: Profile }) {
   return (
-    <section className="border-b border-border bg-background">
+    <section className="border-b border-border bg-brand-off-white">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24 lg:px-8">
         <div className="relative aspect-square overflow-hidden rounded-lg bg-navy-950 lg:order-first">
           {profile.photoUrl ? (
@@ -36,7 +36,10 @@ export function AboutSection({ profile }: { profile: Profile }) {
           <p className="mt-6 text-base text-gray-600">{profile.shortBio}</p>
           <Link
             href="/sobre"
-            className={cn(buttonVariants({ variant: "outline" }), "mt-8")}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "mt-8 hover:border-brand-red/60 hover:text-brand-red"
+            )}
           >
             Conheça a trajetória
           </Link>

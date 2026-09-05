@@ -12,7 +12,7 @@ export function InstagramCommunity({
   const followers = settings.stats.find((stat) => stat.id === "followers");
 
   return (
-    <section className="border-b border-navy-900 bg-navy-950">
+    <section className="border-t-2 border-t-brand-red border-b border-b-navy-900 bg-navy-950">
       <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 lg:py-20 lg:px-8">
         <Reveal>
           <AtSign className="mx-auto size-8 text-navy-500" aria-hidden="true" />
@@ -30,7 +30,7 @@ export function InstagramCommunity({
             href={settings.instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex items-center justify-center rounded-md border border-navy-500/40 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-navy-900"
+            className="mt-6 inline-flex items-center justify-center rounded-md border border-navy-500/40 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-brand-red/70 hover:bg-navy-900"
           >
             Acompanhar no Instagram
           </a>

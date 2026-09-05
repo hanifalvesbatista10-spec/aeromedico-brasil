@@ -61,6 +61,21 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Aeromédico Brasil — tokens semânticos da marca (derivados das cores
+     oficiais abaixo; nenhum hex novo, apenas variações calculadas). Uso
+     restrito à landing pública — não substituem os tokens shadcn acima,
+     que o painel administrativo também consome. */
+  --color-brand-red: var(--brand-red);
+  --color-brand-red-hover: var(--brand-red-hover);
+  --color-brand-red-soft: var(--brand-red-soft);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-deep: var(--brand-navy-deep);
+  --color-brand-off-white: var(--brand-off-white);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-border: var(--brand-border);
+  --color-brand-text: var(--brand-text);
+  --color-brand-muted: var(--brand-muted);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -78,6 +93,19 @@
   --navy-700: #32456d;
   --navy-500: #486095;
   --alert-600: #c80008;
+
+  /* Tokens semânticos da marca — landing pública. Derivados por cálculo
+     (color-mix) a partir das duas cores acima, nunca hexadecimais novos. */
+  --brand-red: var(--alert-600);
+  --brand-red-hover: color-mix(in oklch, var(--alert-600), black 16%);
+  --brand-red-soft: color-mix(in oklch, var(--alert-600), white 92%);
+  --brand-navy: var(--navy-900);
+  --brand-navy-deep: var(--navy-950);
+  --brand-off-white: color-mix(in oklch, white, var(--navy-950) 3%);
+  --brand-surface: color-mix(in oklch, white, var(--navy-950) 6%);
+  --brand-border: color-mix(in oklch, var(--navy-900), white 86%);
+  --brand-text: var(--navy-950);
+  --brand-muted: color-mix(in oklch, var(--navy-900), white 42%);
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -153,6 +181,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-body;

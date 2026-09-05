@@ -6,7 +6,7 @@ import type { SpeakingTopic } from "@/lib/types";
 
 export function SpeakingSection({ topics }: { topics: SpeakingTopic[] }) {
   return (
-    <section className="border-b border-border bg-gray-50">
+    <section className="border-b border-border bg-brand-surface">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <div className="lg:grid lg:grid-cols-3 lg:gap-16">
           <Reveal>
@@ -19,7 +19,7 @@ export function SpeakingSection({ topics }: { topics: SpeakingTopic[] }) {
             </p>
             <Link
               href="/palestras"
-              className={cn(buttonVariants(), "mt-6")}
+              className={cn(buttonVariants({ variant: "brand" }), "mt-6")}
             >
               Solicitar proposta
             </Link>

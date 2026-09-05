@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export function FinalCTA() {
   return (
-    <section className="bg-navy-950">
+    <section className="border-t-2 border-brand-red bg-navy-950">
       <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 lg:py-24 lg:px-8">
         <Reveal>
           <h2 className="text-h1 font-heading font-bold text-white">
@@ -15,7 +15,7 @@ export function FinalCTA() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               href="/formacoes"
-              className={cn(buttonVariants({ size: "lg" }), "bg-white text-navy-950 hover:bg-white/90")}
+              className={cn(buttonVariants({ variant: "brand", size: "lg" }))}
             >
               Conheça as formações
             </Link>
@@ -23,7 +23,7 @@ export function FinalCTA() {
               href="/contato"
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
-                "border-white/40 text-white hover:bg-white/10"
+                "border-white/40 bg-white/5 text-white hover:border-brand-red/70 hover:bg-white/15 hover:text-white"
               )}
             >
               Fale com a equipe

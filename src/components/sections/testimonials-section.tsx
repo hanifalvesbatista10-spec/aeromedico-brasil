@@ -11,7 +11,7 @@ export function TestimonialsSection({
   const authorized = testimonials.filter((item) => item.authorizedForDisplay);
 
   return (
-    <section className="border-b border-border bg-background">
+    <section className="border-b border-border bg-brand-off-white">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <Reveal>
           <h2 className="text-h2 font-heading font-bold text-navy-950">
@@ -24,7 +24,7 @@ export function TestimonialsSection({
             {authorized.map((testimonial) => (
               <figure
                 key={testimonial.id}
-                className="border-l-2 border-navy-700 pl-5"
+                className="border-l border-brand-red pl-5"
               >
                 <blockquote className="text-sm text-gray-600">
                   “{testimonial.quote}”

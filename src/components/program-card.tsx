@@ -49,7 +49,14 @@ export function ProgramCard({ program }: { program: Program }) {
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-600">
           {program.durationHours && <Badge variant="secondary">{program.durationHours}h</Badge>}
           <Badge variant="secondary">{formatLabels[program.format]}</Badge>
-          <Badge variant={program.status === "disponivel" ? "default" : "secondary"}>
+          <Badge
+            variant="secondary"
+            className={
+              program.status === "disponivel"
+                ? "bg-brand-red-soft text-brand-red"
+                : undefined
+            }
+          >
             {statusLabels[program.status]}
           </Badge>
         </div>
@@ -57,7 +64,10 @@ export function ProgramCard({ program }: { program: Program }) {
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <Link
             href={`/formacoes/${program.slug}`}
-            className={cn(buttonVariants({ variant: "outline" }), "flex-1")}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "flex-1 hover:border-brand-red/60 hover:text-brand-red"
+            )}
           >
             Ver formação
           </Link>
@@ -66,7 +76,7 @@ export function ProgramCard({ program }: { program: Program }) {
               href={program.enrollUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(buttonVariants(), "flex-1")}
+              className={cn(buttonVariants({ variant: "brand" }), "flex-1")}
             >
               Inscrever-se
             </a>

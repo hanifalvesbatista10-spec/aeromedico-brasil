@@ -35,7 +35,7 @@ const pillars = [
 
 export function ExpertisePillars() {
   return (
-    <section className="border-b border-border bg-gray-50">
+    <section className="border-b border-border bg-brand-surface">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <Reveal>
           <h2 className="max-w-2xl text-h2 font-heading font-bold text-navy-950">
@@ -47,9 +47,9 @@ export function ExpertisePillars() {
             <Reveal
               key={pillar.title}
               delay={index * 0.05}
-              className="border-l border-gray-300 pl-5"
+              className="group border-l border-gray-300 pl-5 transition-colors hover:border-brand-red"
             >
-              <span className="font-heading text-sm text-gray-300">
+              <span className="font-heading text-sm text-gray-300 transition-colors group-hover:text-brand-red">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <h3 className="mt-2 text-h4 font-heading font-semibold text-navy-950">

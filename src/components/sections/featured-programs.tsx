@@ -10,7 +10,7 @@ export function FeaturedPrograms({ programs }: { programs: Program[] }) {
   const featured = programs.filter((program) => program.featured).slice(0, 3);
 
   return (
-    <section className="border-b border-border bg-background">
+    <section className="border-b border-border bg-brand-off-white">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <Reveal className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <h2 className="text-h2 font-heading font-bold text-navy-950">
@@ -18,7 +18,10 @@ export function FeaturedPrograms({ programs }: { programs: Program[] }) {
           </h2>
           <Link
             href="/formacoes"
-            className={cn(buttonVariants({ variant: "outline" }))}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "hover:border-brand-red/60 hover:text-brand-red"
+            )}
           >
             Ver todas as formações
           </Link>

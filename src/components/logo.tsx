@@ -21,6 +21,11 @@ export function Logo({
         height={size}
         className="rounded-full"
         priority
+        // O otimizador de imagem do Next nesta versão não gera corretamente
+        // os tamanhos derivados deste arquivo (requisições ficam pendentes
+        // ou retornam 0 bytes) — serve o original, que é pequeno o
+        // suficiente para não precisar de otimização.
+        unoptimized
       />
       {showWordmark && (
         <span

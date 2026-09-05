@@ -12,7 +12,7 @@ export function ContentHighlights({ posts }: { posts: ContentPost[] }) {
   if (recent.length === 0) return null;
 
   return (
-    <section className="border-b border-border bg-background">
+    <section className="border-b border-border bg-brand-off-white">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
         <Reveal>
           <h2 className="text-h2 font-heading font-bold text-navy-950">
@@ -54,7 +54,7 @@ export function ContentHighlights({ posts }: { posts: ContentPost[] }) {
                     href={href}
                     target={external ? "_blank" : undefined}
                     rel={external ? "noopener noreferrer" : undefined}
-                    className="hover:underline"
+                    className="decoration-brand-red decoration-2 underline-offset-4 hover:underline"
                   >
                     {post.title}
                   </Link>
