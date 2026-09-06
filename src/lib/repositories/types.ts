@@ -2,6 +2,7 @@ import type {
   ContentPost,
   FAQItem,
   Lead,
+  Material,
   Program,
   SiteSettings,
   SpeakingTopic,
@@ -49,6 +50,13 @@ export interface LeadsRepository {
   list(): Promise<Lead[]>;
   create(input: Lead): Promise<Lead>;
   update(id: string, patch: Partial<Lead>): Promise<Lead | null>;
+  remove(id: string): Promise<void>;
+}
+
+export interface MaterialsRepository {
+  list(): Promise<Material[]>;
+  create(input: Material): Promise<Material>;
+  update(id: string, patch: Partial<Material>): Promise<Material | null>;
   remove(id: string): Promise<void>;
 }
 

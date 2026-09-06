@@ -4,6 +4,9 @@ import { profile } from "./profile";
 // Dados de contato ainda não confirmados pelo administrador — placeholders
 // explícitos, substituir antes de publicar (ver README, seção "Pendências").
 export const siteSettings: SiteSettings = {
+  siteName: "Aeromédico Brasil",
+  siteDescription:
+    "Educação, ciência e experiência aplicadas à formação de profissionais que atuam na urgência, emergência e aviação médica.",
   profile,
   stats: [
     {
@@ -29,4 +32,7 @@ export const siteSettings: SiteSettings = {
   secondaryCta: { label: "Fale com a equipe", href: "/contato" },
   footerNote:
     "Os conteúdos educacionais deste site não substituem protocolos institucionais, regulamentações vigentes ou treinamento prático supervisionado.",
+  logoUrl: "/brand/logo.jpg",
+  seoTitle: null,
+  seoDescription: null,
 };

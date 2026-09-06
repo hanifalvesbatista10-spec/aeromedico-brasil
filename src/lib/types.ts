@@ -4,6 +4,7 @@ export interface Profile {
   credentials: string[];
   shortBio: string;
   longBio: string;
+  resumeSummary: string | null;
   photoUrl: string | null;
   instagramHandle: string;
 }
@@ -20,6 +21,8 @@ export interface CTAConfig {
 }
 
 export interface SiteSettings {
+  siteName: string;
+  siteDescription: string;
   profile: Profile;
   stats: SocialProofStat[];
   whatsappUrl: string;
@@ -28,22 +31,33 @@ export interface SiteSettings {
   primaryCta: CTAConfig;
   secondaryCta: CTAConfig;
   footerNote: string;
+  logoUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
 }
 
+export type ProgramType = "curso" | "mentoria" | "treinamento" | "produto";
 export type ProgramFormat = "presencial" | "online" | "hibrido";
 export type ProgramStatus = "disponivel" | "proximas-turmas" | "em-breve";
 
 export interface Program {
   slug: string;
+  type: ProgramType;
   title: string;
   category: string;
   shortDescription: string;
+  fullDescription: string | null;
   imageUrl: string | null;
   durationHours: number | null;
   format: ProgramFormat;
   status: ProgramStatus;
   enrollUrl: string | null;
+  ctaLabel: string;
   featured: boolean;
+  published: boolean;
+  sortOrder: number;
+  seoTitle: string | null;
+  seoDescription: string | null;
   isDemoContent: boolean;
 }
 
@@ -55,10 +69,16 @@ export interface ContentPost {
   title: string;
   category: string;
   summary: string;
+  body: string | null;
   coverUrl: string | null;
   author: string;
   publishedAt: string;
   externalUrl: string | null;
+  featured: boolean;
+  published: boolean;
+  sortOrder: number;
+  seoTitle: string | null;
+  seoDescription: string | null;
   isDemoContent: boolean;
 }
 
@@ -70,6 +90,8 @@ export interface Testimonial {
   programOrEvent: string;
   quote: string;
   authorizedForDisplay: boolean;
+  published: boolean;
+  sortOrder: number;
 }
 
 export type SpeakingKind =
@@ -84,12 +106,18 @@ export interface SpeakingTopic {
   kind: SpeakingKind;
   title: string;
   description: string;
+  themes: string[];
+  hireUrl: string | null;
+  published: boolean;
+  sortOrder: number;
 }
 
 export interface FAQItem {
   id: string;
   question: string;
   answer: string;
+  published: boolean;
+  sortOrder: number;
 }
 
 export type LeadOrigin = "contato" | "formacao" | "palestra";
@@ -108,4 +136,20 @@ export interface Lead {
   createdAt: string;
   status: LeadStatus;
   notes: string | null;
+}
+
+export type MaterialType = "pdf" | "imagem" | "link";
+
+export interface Material {
+  id: string;
+  title: string;
+  description: string;
+  type: MaterialType;
+  filePath: string | null;
+  externalUrl: string | null;
+  coverUrl: string | null;
+  category: string;
+  isPublic: boolean;
+  published: boolean;
+  sortOrder: number;
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getRepositories } from "@/lib/repositories";
 import { LeadForm } from "@/components/lead-form";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Palestras",
@@ -31,6 +33,21 @@ export default async function PalestrasPage() {
               {topic.title}
             </h2>
             <p className="mt-2 text-sm text-gray-600">{topic.description}</p>
+            {topic.themes.length > 0 && (
+              <p className="mt-2 text-xs text-gray-600">
+                Temas: {topic.themes.join(" · ")}
+              </p>
+            )}
+            {topic.hireUrl && (
+              <a
+                href={topic.hireUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3")}
+              >
+                Saiba mais
+              </a>
+            )}
           </li>
         ))}
       </ul>

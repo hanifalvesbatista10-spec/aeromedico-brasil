@@ -1,16 +1,22 @@
 import { getRepositories } from "@/lib/repositories";
+import { getCtaEventsCount } from "@/lib/analytics/cta-events";
 import { MetricCard } from "@/components/admin/metric-card";
 import { formatDate } from "@/lib/utils/format-date";
 
 export default async function AdminDashboardPage() {
   const repositories = getRepositories();
-  const [programs, contentPosts, leads] = await Promise.all([
+  const [programs, contentPosts, testimonials, leads, ctaClicks] = await Promise.all([
     repositories.programs.list(),
     repositories.contentPosts.list(),
+    repositories.testimonials.list(),
     repositories.leads.list(),
+    getCtaEventsCount(),
   ]);
 
-  const publishedPrograms = programs.filter((p) => p.status !== "em-breve").length;
+  const publishedPrograms = programs.filter((p) => p.published).length;
+  const publishedContent = contentPosts.filter((p) => p.published).length;
+  const testimonialsAwaitingPublication = testimonials.filter((t) => !t.published).length;
+  const newLeads = leads.filter((lead) => lead.status === "novo").length;
   const speakingRequests = leads.filter((lead) => lead.origin === "palestra").length;
   const recentLeads = [...leads]
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
@@ -20,13 +26,14 @@ export default async function AdminDashboardPage() {
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard label="Total de leads" value={leads.length} />
-        <MetricCard
-          label="Cliques nos CTAs"
-          value="—"
-          hint="Disponível após integrar analytics"
-        />
+        <MetricCard label="Novos leads" value={newLeads} />
+        <MetricCard label="Cliques em CTAs" value={ctaClicks} />
         <MetricCard label="Formações publicadas" value={publishedPrograms} />
-        <MetricCard label="Conteúdos publicados" value={contentPosts.length} />
+        <MetricCard label="Conteúdos publicados" value={publishedContent} />
+        <MetricCard
+          label="Depoimentos aguardando publicação"
+          value={testimonialsAwaitingPublication}
+        />
         <MetricCard label="Solicitações de palestra" value={speakingRequests} />
       </div>
 

@@ -5,12 +5,7 @@ import { getRepositories } from "@/lib/repositories";
 import { formatDate } from "@/lib/utils/format-date";
 import { buildArticleJsonLd } from "@/lib/seo/json-ld";
 
-export async function generateStaticParams() {
-  const posts = await getRepositories().contentPosts.list();
-  return posts
-    .filter((post) => post.kind !== "link-externo")
-    .map((post) => ({ slug: post.slug }));
-}
+// Sem `generateStaticParams` — mesmo motivo do formacoes/[slug]/page.tsx.
 
 export async function generateMetadata({
   params,
@@ -19,11 +14,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getRepositories().contentPosts.getBySlug(slug);
-  if (!post) return {};
+  if (!post || !post.published) return {};
 
   return {
-    title: post.title,
-    description: post.summary,
+    title: post.seoTitle ?? post.title,
+    description: post.seoDescription ?? post.summary,
   };
 }
 
@@ -34,7 +29,7 @@ export default async function ConteudoPage({
 }) {
   const { slug } = await params;
   const post = await getRepositories().contentPosts.getBySlug(slug);
-  if (!post) notFound();
+  if (!post || !post.published) notFound();
   if (post.kind === "link-externo" && post.externalUrl) {
     redirect(post.externalUrl);
   }
@@ -74,6 +69,12 @@ export default async function ConteudoPage({
       <p className="mt-8 text-base leading-relaxed text-gray-600">
         {post.summary}
       </p>
+
+      {post.body && (
+        <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-gray-600">
+          {post.body}
+        </div>
+      )}
 
       {post.isDemoContent && (
         <p className="mt-8 rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-xs text-gray-600">

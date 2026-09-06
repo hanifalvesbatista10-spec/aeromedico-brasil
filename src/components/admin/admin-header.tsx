@@ -1,7 +1,9 @@
 "use client";
 
+import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { signOutAdmin } from "@/lib/actions/auth";
 import { AdminMobileNav } from "./admin-mobile-nav";
 import { adminTitles } from "./admin-nav-items";
 
@@ -16,11 +18,14 @@ function resolveTitle(pathname: string): string {
 export function AdminHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
-  async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
-    router.refresh();
+  function handleLogout() {
+    startTransition(async () => {
+      await signOutAdmin();
+      router.push("/admin/login");
+      router.refresh();
+    });
   }
 
   return (
@@ -31,8 +36,8 @@ export function AdminHeader() {
           {resolveTitle(pathname)}
         </h1>
       </div>
-      <Button variant="outline" size="sm" onClick={handleLogout}>
-        Sair
+      <Button variant="outline" size="sm" onClick={handleLogout} disabled={isPending}>
+        {isPending ? "Saindo..." : "Sair"}
       </Button>
     </header>
   );

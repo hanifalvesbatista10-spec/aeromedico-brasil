@@ -23,10 +23,16 @@ describe("mock content repository", () => {
       title: "Teste",
       category: "Categoria",
       summary: "Resumo",
+      body: null,
       coverUrl: null,
       author: "Autor",
       publishedAt: "2026-01-01",
       externalUrl: null,
+      featured: false,
+      published: false,
+      sortOrder: 0,
+      seoTitle: null,
+      seoDescription: null,
       isDemoContent: true,
     });
     const updated = await repo.update("post-teste", { title: "Atualizado" });

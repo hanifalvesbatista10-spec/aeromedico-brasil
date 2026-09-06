@@ -6,10 +6,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MediaUploader } from "@/components/admin/media-uploader";
+import { FAQManager } from "@/components/admin/faq-manager";
 import { updateSettings } from "@/lib/actions/settings";
-import type { SiteSettings } from "@/lib/types";
+import type { FAQItem, SiteSettings } from "@/lib/types";
 
-export function SettingsManager({ initialSettings }: { initialSettings: SiteSettings }) {
+export function SettingsManager({
+  initialSettings,
+  faqItems,
+}: {
+  initialSettings: SiteSettings;
+  faqItems: FAQItem[];
+}) {
   const [settings, setSettings] = useState(initialSettings);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -25,6 +32,29 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
 
   return (
     <div className="max-w-2xl space-y-10">
+      <section className="space-y-4">
+        <h2 className="font-heading text-base font-semibold text-navy-950">
+          Site
+        </h2>
+        <div className="space-y-2">
+          <Label htmlFor="settings-site-name">Nome do site</Label>
+          <Input
+            id="settings-site-name"
+            value={settings.siteName}
+            onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="settings-site-description">Descrição do site</Label>
+          <Textarea
+            id="settings-site-description"
+            rows={2}
+            value={settings.siteDescription}
+            onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
+          />
+        </div>
+      </section>
+
       <section className="space-y-4">
         <h2 className="font-heading text-base font-semibold text-navy-950">
           Dados profissionais
@@ -104,6 +134,22 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
             }
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="settings-resume-summary">
+            Currículo resumido (opcional)
+          </Label>
+          <Textarea
+            id="settings-resume-summary"
+            rows={4}
+            value={settings.profile.resumeSummary ?? ""}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                profile: { ...settings.profile, resumeSummary: e.target.value || null },
+              })
+            }
+          />
+        </div>
         <MediaUploader
           label="Foto profissional"
           value={settings.profile.photoUrl}
@@ -122,15 +168,9 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
         </h2>
         <MediaUploader
           label="Logomarca oficial"
-          value="/brand/logo.jpg"
-          onChange={() => {
-            /* troca de arquivo nesta fase não persiste — ver README */
-          }}
+          value={settings.logoUrl}
+          onChange={(url) => setSettings({ ...settings, logoUrl: url })}
         />
-        <p className="text-xs text-gray-600">
-          Logomarca oficial em uso, a partir do material de marca
-          fornecido. Envie um novo arquivo aqui para substituir.
-        </p>
       </section>
 
       <section className="space-y-4">
@@ -268,6 +308,31 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
 
       <section className="space-y-4">
         <h2 className="font-heading text-base font-semibold text-navy-950">
+          SEO global
+        </h2>
+        <div className="space-y-2">
+          <Label htmlFor="settings-seo-title">Título de SEO (opcional)</Label>
+          <Input
+            id="settings-seo-title"
+            value={settings.seoTitle ?? ""}
+            onChange={(e) => setSettings({ ...settings, seoTitle: e.target.value || null })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="settings-seo-description">Descrição de SEO (opcional)</Label>
+          <Textarea
+            id="settings-seo-description"
+            rows={2}
+            value={settings.seoDescription ?? ""}
+            onChange={(e) =>
+              setSettings({ ...settings, seoDescription: e.target.value || null })
+            }
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="font-heading text-base font-semibold text-navy-950">
           Rodapé
         </h2>
         <div className="space-y-2">
@@ -286,9 +351,18 @@ export function SettingsManager({ initialSettings }: { initialSettings: SiteSett
           {isPending ? "Salvando..." : "Salvar configurações"}
         </Button>
         {saved && !isPending && (
-          <p className="text-sm text-navy-700">Configurações salvas.</p>
+          <p role="status" className="text-sm text-navy-700">
+            Configurações salvas.
+          </p>
         )}
       </div>
+
+      <section className="space-y-4 border-t border-border pt-8">
+        <h2 className="font-heading text-base font-semibold text-navy-950">
+          Perguntas frequentes (FAQ)
+        </h2>
+        <FAQManager initialItems={faqItems} />
+      </section>
     </div>
   );
 }

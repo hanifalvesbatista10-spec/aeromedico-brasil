@@ -19,10 +19,11 @@ const statusLabels: Record<ProgramStatus, string> = {
   "em-breve": "Em breve",
 };
 
-export async function generateStaticParams() {
-  const programs = await getRepositories().programs.list();
-  return programs.map((program) => ({ slug: program.slug }));
-}
+// Sem `generateStaticParams`: o conteúdo vem do Supabase e muda pelo painel
+// administrativo a qualquer momento, então a página é renderizada sob
+// demanda (e cacheada via `revalidatePath` nas Server Actions) em vez de
+// pré-gerada no build — `generateStaticParams` rodaria em build time, sem
+// acesso a cookies de sessão, o que o Supabase SSR client exige.
 
 export async function generateMetadata({
   params,
@@ -31,11 +32,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const program = await getRepositories().programs.getBySlug(slug);
-  if (!program) return {};
+  if (!program || !program.published) return {};
 
   return {
-    title: program.title,
-    description: program.shortDescription,
+    title: program.seoTitle ?? program.title,
+    description: program.seoDescription ?? program.shortDescription,
   };
 }
 
@@ -46,7 +47,7 @@ export default async function FormacaoPage({
 }) {
   const { slug } = await params;
   const program = await getRepositories().programs.getBySlug(slug);
-  if (!program) notFound();
+  if (!program || !program.published) notFound();
   const courseJsonLd = buildCourseJsonLd(program);
 
   return (
@@ -75,8 +76,8 @@ export default async function FormacaoPage({
         )}
       </div>
 
-      <p className="mt-8 text-base leading-relaxed text-gray-600">
-        {program.shortDescription}
+      <p className="mt-8 whitespace-pre-line text-base leading-relaxed text-gray-600">
+        {program.fullDescription ?? program.shortDescription}
       </p>
 
       <div className="mt-10 border-t border-gray-300 pt-8">
@@ -87,7 +88,7 @@ export default async function FormacaoPage({
             rel="noopener noreferrer"
             className={cn(buttonVariants({ size: "lg" }))}
           >
-            Inscrever-se
+            {program.ctaLabel}
           </a>
         ) : (
           <span

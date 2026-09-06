@@ -17,10 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/admin/data-table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { MediaUploader } from "@/components/admin/media-uploader";
 import {
   createTestimonial,
   updateTestimonial,
   deleteTestimonial,
+  toggleTestimonialPublished,
+  moveTestimonial,
   type TestimonialFormInput,
 } from "@/lib/actions/testimonials";
 import type { Testimonial } from "@/lib/types";
@@ -32,6 +35,7 @@ const emptyForm: TestimonialFormInput = {
   programOrEvent: "",
   quote: "",
   authorizedForDisplay: false,
+  published: false,
 };
 
 export function TestimonialsManager({
@@ -39,12 +43,15 @@ export function TestimonialsManager({
 }: {
   initialTestimonials: Testimonial[];
 }) {
-  const [testimonials, setTestimonials] = useState(initialTestimonials);
+  const [testimonials, setTestimonials] = useState(
+    [...initialTestimonials].sort((a, b) => a.sortOrder - b.sortOrder)
+  );
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<TestimonialFormInput>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Testimonial | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   function openCreate() {
     setEditingId(null);
@@ -61,6 +68,7 @@ export function TestimonialsManager({
       programOrEvent: testimonial.programOrEvent,
       quote: testimonial.quote,
       authorizedForDisplay: testimonial.authorizedForDisplay,
+      published: testimonial.published,
     });
     setFormOpen(true);
   }
@@ -90,6 +98,47 @@ export function TestimonialsManager({
     });
   }
 
+  function handleTogglePublished(testimonial: Testimonial) {
+    if (!testimonial.published && !testimonial.authorizedForDisplay) return;
+    setPendingId(testimonial.id);
+    startTransition(async () => {
+      const updated = await toggleTestimonialPublished(
+        testimonial.id,
+        !testimonial.published
+      );
+      if (updated) {
+        setTestimonials((current) =>
+          current.map((item) => (item.id === testimonial.id ? updated : item))
+        );
+      }
+      setPendingId(null);
+    });
+  }
+
+  function handleMove(testimonial: Testimonial, direction: "up" | "down") {
+    setPendingId(testimonial.id);
+    startTransition(async () => {
+      await moveTestimonial(testimonial.id, direction);
+      setTestimonials((current) => {
+        const sorted = [...current].sort((a, b) => a.sortOrder - b.sortOrder);
+        const index = sorted.findIndex((item) => item.id === testimonial.id);
+        const neighborIndex = direction === "up" ? index - 1 : index + 1;
+        if (index === -1 || neighborIndex < 0 || neighborIndex >= sorted.length) return current;
+        const nextSortOrder = sorted[neighborIndex].sortOrder;
+        const currentSortOrder = sorted[index].sortOrder;
+        return current.map((item) => {
+          if (item.id === sorted[index].id) return { ...item, sortOrder: nextSortOrder };
+          if (item.id === sorted[neighborIndex].id)
+            return { ...item, sortOrder: currentSortOrder };
+          return item;
+        });
+      });
+      setPendingId(null);
+    });
+  }
+
+  const sorted = [...testimonials].sort((a, b) => a.sortOrder - b.sortOrder);
+
   const columns: DataTableColumn<Testimonial>[] = [
     { key: "name", header: "Nome", render: (row) => row.name },
     { key: "profession", header: "Profissão", render: (row) => row.profession },
@@ -100,12 +149,63 @@ export function TestimonialsManager({
     },
     {
       key: "authorizedForDisplay",
-      header: "Publicado",
+      header: "Autorizado",
       render: (row) => (
         <Badge variant={row.authorizedForDisplay ? "default" : "secondary"}>
           {row.authorizedForDisplay ? "Sim" : "Não"}
         </Badge>
       ),
+    },
+    {
+      key: "published",
+      header: "Publicado",
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => handleTogglePublished(row)}
+          disabled={(isPending && pendingId === row.id) || !row.authorizedForDisplay}
+          title={
+            !row.authorizedForDisplay
+              ? "Marque a autorização de exibição antes de publicar"
+              : undefined
+          }
+        >
+          <Badge variant={row.published ? "default" : "secondary"}>
+            {row.published ? "Publicado" : "Rascunho"}
+          </Badge>
+        </button>
+      ),
+    },
+    {
+      key: "order",
+      header: "Ordem",
+      render: (row) => {
+        const index = sorted.findIndex((item) => item.id === row.id);
+        return (
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={index <= 0 || isPending}
+              onClick={() => handleMove(row, "up")}
+              aria-label={`Mover depoimento de "${row.name}" para cima`}
+            >
+              ↑
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={index === -1 || index >= sorted.length - 1 || isPending}
+              onClick={() => handleMove(row, "down")}
+              aria-label={`Mover depoimento de "${row.name}" para baixo`}
+            >
+              ↓
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -121,12 +221,12 @@ export function TestimonialsManager({
 
       <DataTable
         columns={columns}
-        rows={testimonials}
+        rows={sorted}
         getRowId={(row) => row.id}
         emptyState={
           <EmptyState
             title="Nenhum depoimento cadastrado"
-            description="Cadastre depoimentos reais e marque “publicar” apenas com autorização confirmada."
+            description="Cadastre depoimentos reais e marque “autorizado” apenas com autorização confirmada."
           />
         }
         rowActions={(row) => (
@@ -189,6 +289,11 @@ export function TestimonialsManager({
                 onChange={(e) => setForm({ ...form, quote: e.target.value })}
               />
             </div>
+            <MediaUploader
+              label="Foto (opcional)"
+              value={form.photoUrl}
+              onChange={(url) => setForm({ ...form, photoUrl: url })}
+            />
             <div className="flex items-center gap-2">
               <input
                 id="testimonial-authorized"
@@ -196,13 +301,35 @@ export function TestimonialsManager({
                 className="size-4 rounded border-border"
                 checked={form.authorizedForDisplay}
                 onChange={(e) =>
-                  setForm({ ...form, authorizedForDisplay: e.target.checked })
+                  setForm({
+                    ...form,
+                    authorizedForDisplay: e.target.checked,
+                    published: e.target.checked ? form.published : false,
+                  })
                 }
               />
               <Label htmlFor="testimonial-authorized" className="font-normal">
                 Autorização de exibição confirmada
               </Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="testimonial-published"
+                type="checkbox"
+                className="size-4 rounded border-border disabled:opacity-50"
+                checked={form.published}
+                disabled={!form.authorizedForDisplay}
+                onChange={(e) => setForm({ ...form, published: e.target.checked })}
+              />
+              <Label htmlFor="testimonial-published" className="font-normal">
+                Publicado (visível no site)
+              </Label>
+            </div>
+            {!form.authorizedForDisplay && (
+              <p className="text-xs text-gray-600">
+                É preciso confirmar a autorização de exibição antes de publicar.
+              </p>
+            )}
           </div>
 
           <DialogFooter>

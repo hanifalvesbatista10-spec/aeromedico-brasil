@@ -5,6 +5,7 @@ import {
   Quote,
   Mic,
   Users,
+  FolderOpen,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,7 @@ export const adminNavItems: AdminNavItem[] = [
   { href: "/admin/conteudos", label: "Conteúdos", icon: Newspaper },
   { href: "/admin/depoimentos", label: "Depoimentos", icon: Quote },
   { href: "/admin/palestras", label: "Palestras", icon: Mic },
+  { href: "/admin/materiais", label: "Materiais", icon: FolderOpen },
   { href: "/admin/leads", label: "Leads", icon: Users },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];

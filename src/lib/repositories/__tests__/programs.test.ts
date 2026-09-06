@@ -25,15 +25,22 @@ describe("mock programs repository", () => {
     const repo = createMockProgramsRepository();
     const created = await repo.create({
       slug: "teste-slug",
+      type: "curso",
       title: "Teste",
       category: "Categoria",
       shortDescription: "Descrição",
+      fullDescription: null,
       imageUrl: null,
       durationHours: null,
       format: "online",
       status: "em-breve",
       enrollUrl: null,
+      ctaLabel: "Inscrever-se",
       featured: false,
+      published: false,
+      sortOrder: 0,
+      seoTitle: null,
+      seoDescription: null,
       isDemoContent: true,
     });
     expect(created.slug).toBe("teste-slug");

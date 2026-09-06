@@ -42,6 +42,7 @@ export function LeadForm({
       message: String(data.get("message") ?? ""),
       origin,
       consentGiven: data.get("consentGiven") === "on",
+      website: String(data.get("website") ?? ""),
     };
 
     try {
@@ -79,6 +80,20 @@ export function LeadForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      {/* Honeypot antispam: campo invisível para pessoas, mas visível para
+          bots que preenchem todos os campos de um formulário. Se vier
+          preenchido, o servidor descarta o envio silenciosamente. */}
+      <div className="sr-only" aria-hidden="true">
+        <label htmlFor={`${formId}-website`}>Deixe este campo em branco</label>
+        <input
+          id={`${formId}-website`}
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           id={`${formId}-name`}
