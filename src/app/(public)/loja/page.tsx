@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { EmptyState } from "@/components/empty-state";
 import { StoreProductCard } from "@/components/store/product-card";
@@ -31,6 +32,9 @@ export default async function LojaPage() {
       store.listProductDetails(),
     ]);
   } catch (error) {
+    // Erros internos do Next (ex.: uso de cookies na renderização) precisam
+    // seguir adiante; só falhas reais do catálogo são tratadas aqui.
+    unstable_rethrow(error);
     // Catálogo indisponível (ex.: migration da loja ainda não aplicada): o
     // visitante vê "a loja abre em breve" em vez de uma página de erro.
     console.error("[loja] catálogo indisponível", error);

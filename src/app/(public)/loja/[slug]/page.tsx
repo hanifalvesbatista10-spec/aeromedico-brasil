@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { VariantPicker } from "@/components/store/variant-picker";
 import { publishedVariants } from "@/lib/store/variants";
@@ -13,7 +13,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const detail = await getRepositories()
     .store.getProductBySlug(slug)
-    .catch(() => null);
+    .catch((error: unknown) => {
+      unstable_rethrow(error);
+      return null;
+    });
   if (!detail || !detail.product.published) return {};
 
   return {
@@ -34,6 +37,7 @@ export default async function ProdutoPage({
   const [detail, settings] = await Promise.all([
     // Catálogo indisponível (ex.: migration ainda não aplicada) = 404, não 500.
     repositories.store.getProductBySlug(slug).catch((error: unknown) => {
+      unstable_rethrow(error);
       console.error("[loja] produto indisponível", error);
       return null;
     }),

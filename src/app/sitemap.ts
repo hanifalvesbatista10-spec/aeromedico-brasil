@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 
 const staticRoutes = [
@@ -22,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     repositories.contentPosts.list(),
     // O sitemap não pode cair por causa da loja (ex.: tabelas ainda não criadas).
     repositories.store.listProducts().catch((error: unknown) => {
+      unstable_rethrow(error);
       console.error("[sitemap] loja indisponível", error);
       return [];
     }),
