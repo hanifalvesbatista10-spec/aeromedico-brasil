@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { getRepositories } from "@/lib/repositories";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { slugify } from "@/lib/utils/slugify";
+import { reorderBySwap } from "@/lib/store/order";
 import {
   storeCategorySchema,
   storeImagesSchema,
@@ -83,32 +84,19 @@ export async function toggleStoreProductPublished(
   return product;
 }
 
-/**
- * Troca o produto com o vizinho e renumera a lista inteira de 0 a n-1:
- * exclusões deixam ordens duplicadas ou com buracos, e trocar só dois valores
- * não resolveria. Só grava os produtos cuja ordem de fato mudou.
- */
+/** Move o produto uma posição; a regra de ordem está em `reorderBySwap`. */
 export async function moveStoreProduct(
   id: string,
   direction: "up" | "down"
 ): Promise<void> {
   await requireAdmin();
   const repository = getRepositories().store;
-  const ordered = [...(await repository.listProducts())].sort(
-    (a, b) => a.sortOrder - b.sortOrder
-  );
-
-  const index = ordered.findIndex((product) => product.id === id);
-  const neighbor = direction === "up" ? index - 1 : index + 1;
-  if (index === -1 || neighbor < 0 || neighbor >= ordered.length) return;
-
-  [ordered[index], ordered[neighbor]] = [ordered[neighbor], ordered[index]];
+  const changes = reorderBySwap(await repository.listProducts(), id, direction);
+  if (changes.length === 0) return;
 
   await Promise.all(
-    ordered.map((product, position) =>
-      product.sortOrder === position
-        ? null
-        : repository.updateProduct(product.id, { sortOrder: position })
+    changes.map((change) =>
+      repository.updateProduct(change.id, { sortOrder: change.sortOrder })
     )
   );
   revalidateStore();
