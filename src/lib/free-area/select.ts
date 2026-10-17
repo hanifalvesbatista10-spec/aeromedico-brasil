@@ -32,3 +32,19 @@ export function selectProductHighlights(
     })
     .slice(0, limit);
 }
+
+/**
+ * Link externo de um material, só se for http/https. Qualquer outro esquema
+ * (`javascript:`, `data:`) ou texto inválido vira `null` e o item é omitido.
+ */
+export function materialExternalHref(material: Material): string | null {
+  if (!material.externalUrl) return null;
+  try {
+    const url = new URL(material.externalUrl);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}

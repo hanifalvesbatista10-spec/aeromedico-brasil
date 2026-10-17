@@ -6,6 +6,7 @@ const staticRoutes = [
   "/sobre",
   "/formacoes",
   "/conteudos",
+  "/gratuito",
   "/palestras",
   "/contato",
   "/politica-de-privacidade",
@@ -24,12 +25,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${siteUrl}${route}`,
   }));
 
-  const programEntries: MetadataRoute.Sitemap = programs.map((program) => ({
-    url: `${siteUrl}/formacoes/${program.slug}`,
-  }));
+  const programEntries: MetadataRoute.Sitemap = programs
+    .filter((program) => program.published)
+    .map((program) => ({
+      url: `${siteUrl}/formacoes/${program.slug}`,
+    }));
 
   const contentEntries: MetadataRoute.Sitemap = contentPosts
-    .filter((post) => post.kind !== "link-externo")
+    .filter((post) => post.published && post.kind !== "link-externo")
     .map((post) => ({
       url: `${siteUrl}/conteudos/${post.slug}`,
       lastModified: post.publishedAt,

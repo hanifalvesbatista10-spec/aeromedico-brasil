@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  materialExternalHref,
   selectProductHighlights,
   selectPublicMaterials,
   selectRecentPosts,
@@ -128,5 +129,34 @@ describe("selectProductHighlights", () => {
 
   it("devolve lista vazia quando não há nada", () => {
     expect(selectProductHighlights([], 3)).toEqual([]);
+  });
+});
+
+describe("materialExternalHref", () => {
+  it("devolve a URL http/https do material do tipo link", () => {
+    expect(
+      materialExternalHref(
+        material({ type: "link", filePath: null, externalUrl: "https://exemplo.com/guia" })
+      )
+    ).toBe("https://exemplo.com/guia");
+  });
+
+  it("rejeita esquemas perigosos e texto que não é URL", () => {
+    expect(
+      materialExternalHref(
+        material({ type: "link", filePath: null, externalUrl: "javascript:alert(1)" })
+      )
+    ).toBeNull();
+    expect(
+      materialExternalHref(
+        material({ type: "link", filePath: null, externalUrl: "isto não é url" })
+      )
+    ).toBeNull();
+  });
+
+  it("devolve null quando não há URL externa", () => {
+    expect(
+      materialExternalHref(material({ type: "link", filePath: null, externalUrl: null }))
+    ).toBeNull();
   });
 });
