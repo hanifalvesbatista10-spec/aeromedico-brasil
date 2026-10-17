@@ -52,6 +52,10 @@ ordem:
 2. `20260905120100_cms_rls.sql`
 3. `20260905120200_cms_storage.sql`
 4. `20260905120300_cms_seed.sql`
+5. `20261018120000_store_catalog.sql` (loja: categorias, produtos, variações e fotos; o catálogo nasce vazio)
+
+**Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
+mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
 
 Depois, crie o usuário administrador em *Authentication → Users → Add user*
 (o cadastro público é desativado) e autorize-o com
@@ -81,7 +85,7 @@ src/
     admin/
       login/          login por e-mail/senha (Supabase Auth)
       (dashboard)/    dashboard e gestão: formações, conteúdos, depoimentos,
-                      palestras, materiais, leads e configurações (com FAQ)
+                      palestras, materiais, loja, leads e configurações (com FAQ)
     api/
       leads/          captação de leads (validação Zod + honeypot)
       cta/            registro de cliques em CTAs
@@ -150,6 +154,15 @@ preenchidas com informação real antes de publicar.
 - Depoimentos reais e autorizados. A seção fica vazia até existirem; um
   depoimento só pode ser publicado com autorização registrada.
 
+**Loja** (fase do catálogo)
+- O catálogo nasce vazio: o dono cadastra categorias, produtos (camisetas, bonés,
+  patches e o que vier), tamanhos, cores, preço, peso e medidas em `/admin/loja`.
+  Faltam as fotos reais de cada cor.
+- A compra ainda é pelo WhatsApp do cliente. Carrinho, cupom, frete (Melhor Envio),
+  pagamento e área do cliente são as próximas fases (ver `docs/superpowers/specs/`).
+- Antes do carrinho: trocar `saveVariants` por atualização por `id` (hoje cada
+  salvamento recria as variações com ids novos).
+
 **Contato**
 - `whatsapp_url` no seed (e em `src/data/settings.ts`) é o placeholder
   `https://wa.me/`: falta o número real.
@@ -172,7 +185,7 @@ preenchidas com informação real antes de publicar.
 
 ## Próximos passos sugeridos
 
-1. Confirmar o projeto Supabase do CMS, aplicar as migrations e autorizar o
+1. Confirmar o projeto Supabase do CMS, aplicar as 5 migrations e autorizar o
    administrador (seção "Banco de dados e primeiro administrador").
 2. Testar o painel de ponta a ponta contra o banco real (login, CRUD, uploads).
 3. Substituir o conteúdo demonstrativo por formações, conteúdos e depoimentos
