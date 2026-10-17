@@ -46,7 +46,7 @@ export function Header({ primaryCta }: { primaryCta: CTAConfig }) {
 
         <nav
           aria-label="Navegação principal"
-          className="hidden items-center gap-6 lg:flex"
+          className="hidden items-center gap-6 xl:flex"
         >
           {navLinks.map((link) => {
             const isActive =
@@ -78,7 +78,7 @@ export function Header({ primaryCta }: { primaryCta: CTAConfig }) {
         <div className="flex items-center gap-2 text-white">
           <Link
             href={primaryCta.href}
-            className={cn(buttonVariants({ variant: "brand" }), "hidden lg:inline-flex")}
+            className={cn(buttonVariants({ variant: "brand" }), "hidden xl:inline-flex")}
           >
             {primaryCta.label}
           </Link>
