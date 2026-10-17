@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { EmptyState } from "@/components/empty-state";
 import { StoreProductCard } from "@/components/store/product-card";
+import { isStoreProductVisible } from "@/lib/store/visibility";
 import type { StoreProductDetail } from "@/lib/repositories/types";
 import type { StoreCategory } from "@/lib/types";
 
@@ -42,8 +43,9 @@ export default async function LojaPage() {
 
   // O visitante já só recebe linhas publicadas (RLS), mas um administrador
   // logado recebe tudo: o filtro explícito evita rascunhos na vitrine pública.
+  // Produto de categoria despublicada também fica oculto.
   const products = details
-    .filter((detail) => detail.product.published)
+    .filter((detail) => isStoreProductVisible(detail.product, categories))
     .sort((a, b) => a.product.sortOrder - b.product.sortOrder);
   const visibleCategories = categories
     .filter((category) => category.published)

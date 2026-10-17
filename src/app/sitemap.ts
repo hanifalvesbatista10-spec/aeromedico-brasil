@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
+import { isStoreProductVisible } from "@/lib/store/visibility";
 
 const staticRoutes = [
   "",
@@ -18,13 +19,17 @@ const staticRoutes = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const repositories = getRepositories();
-  const [programs, contentPosts, storeProducts] = await Promise.all([
+  const [programs, contentPosts, storeProducts, storeCategories] = await Promise.all([
     repositories.programs.list(),
     repositories.contentPosts.list(),
     // O sitemap não pode cair por causa da loja (ex.: tabelas ainda não criadas).
     repositories.store.listProducts().catch((error: unknown) => {
       unstable_rethrow(error);
       console.error("[sitemap] loja indisponível", error);
+      return [];
+    }),
+    repositories.store.listCategories().catch((error: unknown) => {
+      unstable_rethrow(error);
       return [];
     }),
   ]);
@@ -47,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
   const storeEntries: MetadataRoute.Sitemap = storeProducts
-    .filter((product) => product.published)
+    .filter((product) => isStoreProductVisible(product, storeCategories))
     .map((product) => ({
       url: `${siteUrl}/loja/${product.slug}`,
     }));

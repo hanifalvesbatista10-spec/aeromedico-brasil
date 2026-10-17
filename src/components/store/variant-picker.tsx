@@ -21,10 +21,10 @@ import type { StoreProduct, StoreProductImage, StoreVariant } from "@/lib/types"
 const optionBase =
   "inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-700";
 
-function statusLabel(status: string, needsSize: boolean, needsColor: boolean): string {
+function statusLabel(status: string, missingSize: boolean, missingColor: boolean): string {
   if (status === "sold-out") return "Esgotado";
   if (status === "unavailable") return "Indisponível";
-  const missing = [needsSize ? "o tamanho" : null, needsColor ? "a cor" : null]
+  const missing = [missingSize ? "o tamanho" : null, missingColor ? "a cor" : null]
     .filter(Boolean)
     .join(" e ");
   return `Escolha ${missing}`;
@@ -73,6 +73,23 @@ export function VariantPicker({
           buildStoreWhatsappMessage(product.name, size, colorName)
         )
       : null;
+
+  // Nunca prender o cliente: escolher uma opção que não combina com a outra
+  // já escolhida aceita a nova e limpa a outra (ex.: Preta só tem P, Rosa só
+  // tem PP: clicar em Rosa com P marcado troca a cor e pede o tamanho).
+  function chooseColor(name: string) {
+    setColorName(name);
+    setPhotoIndex(0);
+    if (size !== null && !published.some((v) => v.colorName === name && v.size === size)) {
+      setSize(null);
+    }
+  }
+  function chooseSize(value: string) {
+    setSize(value);
+    if (colorName !== null && !published.some((v) => v.size === value && v.colorName === colorName)) {
+      setColorName(null);
+    }
+  }
 
   function sizeExists(value: string) {
     return published.some(
@@ -161,17 +178,13 @@ export function VariantPicker({
                   <button
                     key={color.name}
                     type="button"
-                    disabled={!exists}
                     aria-pressed={selected}
-                    onClick={() => {
-                      setColorName(color.name);
-                      setPhotoIndex(0);
-                    }}
+                    onClick={() => chooseColor(color.name)}
                     className={cn(
                       optionBase,
                       "gap-2",
                       selected ? "border-navy-700 bg-navy-950/5" : "border-border",
-                      !exists && "cursor-not-allowed opacity-40",
+                      !exists && "opacity-60",
                       soldOut("color", color.name) && "line-through"
                     )}
                   >
@@ -201,13 +214,12 @@ export function VariantPicker({
                   <button
                     key={value}
                     type="button"
-                    disabled={!exists}
                     aria-pressed={selected}
-                    onClick={() => setSize(value)}
+                    onClick={() => chooseSize(value)}
                     className={cn(
                       optionBase,
                       selected ? "border-navy-700 bg-navy-950/5" : "border-border",
-                      !exists && "cursor-not-allowed opacity-40",
+                      !exists && "opacity-60",
                       soldOut("size", value) && "line-through"
                     )}
                   >
@@ -240,7 +252,11 @@ export function VariantPicker({
             >
               {selection.status === "ready"
                 ? "Compra em breve"
-                : statusLabel(selection.status, needsSize, needsColor)}
+                : statusLabel(
+                    selection.status,
+                    needsSize && size === null,
+                    needsColor && colorName === null
+                  )}
             </span>
           )}
         </div>

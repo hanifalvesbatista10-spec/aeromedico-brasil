@@ -3,7 +3,31 @@ import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { VariantPicker } from "@/components/store/variant-picker";
+import { isStoreProductVisible } from "@/lib/store/visibility";
 import { publishedVariants } from "@/lib/store/variants";
+import type { StoreProductDetail } from "@/lib/repositories/types";
+
+/**
+ * Produto visível ao público (publicado e em categoria publicada) ou `null`.
+ * Rascunho nunca aparece, nem para administrador logado. Catálogo
+ * indisponível (ex.: migration ainda não aplicada) vira 404, não 500.
+ */
+async function loadVisibleProduct(slug: string): Promise<StoreProductDetail | null> {
+  const store = getRepositories().store;
+  try {
+    const [detail, categories] = await Promise.all([
+      store.getProductBySlug(slug),
+      store.listCategories(),
+    ]);
+    if (!detail || !isStoreProductVisible(detail.product, categories)) return null;
+    return detail;
+  } catch (error) {
+    // Erros internos do Next (ex.: uso de cookies) precisam seguir adiante.
+    unstable_rethrow(error);
+    console.error("[loja] produto indisponível", error);
+    return null;
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -11,13 +35,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const detail = await getRepositories()
-    .store.getProductBySlug(slug)
-    .catch((error: unknown) => {
-      unstable_rethrow(error);
-      return null;
-    });
-  if (!detail || !detail.product.published) return {};
+  const detail = await loadVisibleProduct(slug);
+  if (!detail) return {};
 
   return {
     title: detail.product.seoTitle ?? detail.product.name,
@@ -33,18 +52,11 @@ export default async function ProdutoPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const repositories = getRepositories();
   const [detail, settings] = await Promise.all([
-    // Catálogo indisponível (ex.: migration ainda não aplicada) = 404, não 500.
-    repositories.store.getProductBySlug(slug).catch((error: unknown) => {
-      unstable_rethrow(error);
-      console.error("[loja] produto indisponível", error);
-      return null;
-    }),
-    repositories.settings.get(),
+    loadVisibleProduct(slug),
+    getRepositories().settings.get(),
   ]);
-  // Rascunho nunca aparece, nem para administrador logado.
-  if (!detail || !detail.product.published) notFound();
+  if (!detail) notFound();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-20 lg:px-8">

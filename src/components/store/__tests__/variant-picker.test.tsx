@@ -138,4 +138,49 @@ describe("VariantPicker", () => {
     click(/Branca/);
     expect(main()).toBe("Foto branca");
   });
+
+  describe("grade em que nem toda combinação existe", () => {
+    // Preta só tem P; Rosa só tem PP. Antes, escolher Preta + P desabilitava
+    // Rosa e PP e o cliente ficava preso até recarregar a página.
+    const grid = [
+      variant({ id: "pp-preta", size: "P", colorName: "Preta", colorHex: "#000000", sortOrder: 0 }),
+      variant({ id: "pp-rosa", size: "PP", colorName: "Rosa", colorHex: "#ff66aa", sortOrder: 1 }),
+    ];
+
+    it("escolher uma cor que não existe no tamanho atual troca a cor e limpa o tamanho", () => {
+      renderShirt(WHATSAPP, {}, grid);
+      click("P");
+      click(/Preta/);
+      expect(buyLink()).toBeTruthy();
+
+      const rosa = screen.getByRole("button", { name: /Rosa/ }) as HTMLButtonElement;
+      expect(rosa.disabled).toBe(false);
+      fireEvent.click(rosa);
+
+      expect(buyLink()).toBeNull();
+      expect(screen.getByText("Escolha o tamanho")).toBeTruthy();
+
+      click("PP");
+      expect(buyLink()?.getAttribute("href")).toContain(
+        encodeURIComponent("Olá! Quero comprar: Camiseta Aeromédico (PP, Rosa).")
+      );
+    });
+
+    it("escolher um tamanho que não existe na cor atual troca o tamanho e limpa a cor", () => {
+      renderShirt(WHATSAPP, {}, grid);
+      click(/Rosa/);
+      click("PP");
+      expect(buyLink()).toBeTruthy();
+
+      const tamanhoP = screen.getByRole("button", { name: "P" }) as HTMLButtonElement;
+      expect(tamanhoP.disabled).toBe(false);
+      fireEvent.click(tamanhoP);
+
+      expect(buyLink()).toBeNull();
+      expect(screen.getByText("Escolha a cor")).toBeTruthy();
+
+      click(/Preta/);
+      expect(buyLink()).toBeTruthy();
+    });
+  });
 });
