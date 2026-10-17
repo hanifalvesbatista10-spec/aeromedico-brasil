@@ -16,23 +16,43 @@ import {
   type StoreProductFormInput,
   type StoreVariantFormInput,
 } from "@/lib/validation/store";
-import type {
-  StoreCategory,
-  StoreProduct,
-  StoreProductImage,
-  StoreVariant,
-} from "@/lib/types";
+import type { StoreProductDetail } from "@/lib/repositories/types";
+import type { StoreCategory, StoreProduct } from "@/lib/types";
 
 // Toda ação confere o administrador ANTES de qualquer outra coisa (defesa em
 // profundidade; a garantia real é a RLS) e só então valida a entrada: quem
 // não é admin não aprende nada sobre as regras de validação.
+//
+// Erros ESPERADOS (validação, endereço repetido, falha ao gravar) voltam como
+// valor `{ ok: false, error }`: em produção o Next esconde a mensagem de erros
+// lançados por Server Actions, e o dono precisa ler "Informe um preço válido".
 
-function parseOrThrow<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
-  const result = schema.safeParse(input);
-  if (!result.success) {
-    throw new Error(result.error.issues[0]?.message ?? "Dados inválidos.");
-  }
-  return result.data;
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+export interface StoreBundleInput {
+  /** Presente ao editar; ausente ao criar. */
+  id?: string;
+  product: StoreProductFormInput;
+  variants: StoreVariantFormInput[];
+  images: StoreImageFormInput[];
+}
+
+/**
+ * `detail` é o estado REAL do produto no banco. Vem também quando a gravação
+ * falha pela metade, para o painel mostrar o que de fato ficou salvo.
+ */
+export type StoreBundleResult =
+  | { ok: true; detail: StoreProductDetail }
+  | { ok: false; error: string; detail: StoreProductDetail | null };
+
+function issueMessage(error: z.ZodError): string {
+  return error.issues[0]?.message ?? "Dados inválidos.";
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : "Não foi possível salvar agora.";
 }
 
 function revalidateStore() {
@@ -47,31 +67,69 @@ function slugFrom(name: string, label: string): string {
   return slug;
 }
 
-export async function saveStoreProduct(
-  input: StoreProductFormInput & { id?: string }
-): Promise<StoreProduct> {
+/**
+ * Salva produto, variações e fotos numa única chamada. Valida tudo ANTES de
+ * gravar qualquer coisa. Produto novo nasce como rascunho e só é publicado
+ * depois que variações e fotos foram gravadas: uma falha no meio nunca deixa
+ * à venda um produto sem tamanho e cor.
+ */
+export async function saveStoreProductBundle(
+  input: StoreBundleInput
+): Promise<StoreBundleResult> {
   await requireAdmin();
-  const { id, ...form } = input;
-  const data = parseOrThrow(storeProductSchema, form);
-  const repository = getRepositories().store;
 
-  let product: StoreProduct | null;
-  if (id) {
-    // O endereço (slug) não muda ao editar: links já divulgados continuam valendo.
-    product = await repository.updateProduct(id, data);
-    if (!product) throw new Error("Produto não encontrado.");
-  } else {
-    const existing = await repository.listProducts();
-    product = await repository.createProduct({
-      ...data,
-      slug: slugFrom(data.name, "o produto"),
-      hasVariants: false,
-      sortOrder: existing.length,
-    });
+  const product = storeProductSchema.safeParse(input.product);
+  if (!product.success) {
+    return { ok: false, error: issueMessage(product.error), detail: null };
+  }
+  const variants = storeVariantsSchema.safeParse(input.variants);
+  if (!variants.success) {
+    return { ok: false, error: issueMessage(variants.error), detail: null };
+  }
+  const images = storeImagesSchema.safeParse(input.images);
+  if (!images.success) {
+    return { ok: false, error: issueMessage(images.error), detail: null };
   }
 
-  revalidateStore();
-  return product;
+  const repository = getRepositories().store;
+  let saved: StoreProduct | null = null;
+
+  try {
+    if (input.id) {
+      // O endereço (slug) não muda ao editar: links já divulgados continuam valendo.
+      saved = await repository.updateProduct(input.id, product.data);
+      if (!saved) return { ok: false, error: "Produto não encontrado.", detail: null };
+    } else {
+      const slug = slugFrom(product.data.name, "o produto");
+      const existing = await repository.listProducts();
+      saved = await repository.createProduct({
+        ...product.data,
+        slug,
+        published: false,
+        hasVariants: false,
+        sortOrder: existing.length,
+      });
+    }
+
+    await repository.saveVariants(saved.id, variants.data);
+    await repository.saveImages(saved.id, images.data);
+
+    if (!input.id && product.data.published) {
+      saved = (await repository.updateProduct(saved.id, { published: true })) ?? saved;
+    }
+
+    revalidateStore();
+    const detail = await repository.getProductBySlug(saved.slug);
+    return detail
+      ? { ok: true, detail }
+      : { ok: false, error: "Produto salvo, mas não foi possível recarregá-lo.", detail: null };
+  } catch (error) {
+    revalidateStore();
+    const detail = saved
+      ? await repository.getProductBySlug(saved.slug).catch(() => null)
+      : null;
+    return { ok: false, error: messageOf(error), detail };
+  }
 }
 
 export async function toggleStoreProductPublished(
@@ -108,50 +166,31 @@ export async function deleteStoreProduct(id: string): Promise<void> {
   revalidateStore();
 }
 
-export async function saveStoreVariants(
-  productId: string,
-  input: StoreVariantFormInput[]
-): Promise<StoreVariant[]> {
-  await requireAdmin();
-  // Valida tudo (inclusive duplicidade) ANTES de apagar o conjunto antigo.
-  const variants = parseOrThrow(storeVariantsSchema, input);
-  const saved = await getRepositories().store.saveVariants(productId, variants);
-  revalidateStore();
-  return saved;
-}
-
-export async function saveStoreImages(
-  productId: string,
-  input: StoreImageFormInput[]
-): Promise<StoreProductImage[]> {
-  await requireAdmin();
-  const images = parseOrThrow(storeImagesSchema, input);
-  const saved = await getRepositories().store.saveImages(productId, images);
-  revalidateStore();
-  return saved;
-}
-
 export async function saveStoreCategory(
   input: StoreCategoryFormInput & { id?: string }
-): Promise<StoreCategory> {
+): Promise<ActionResult<StoreCategory>> {
   await requireAdmin();
   const { id, ...form } = input;
-  const data = parseOrThrow(storeCategorySchema, form);
+  const parsed = storeCategorySchema.safeParse(form);
+  if (!parsed.success) return { ok: false, error: issueMessage(parsed.error) };
+
   const repository = getRepositories().store;
-
-  let category: StoreCategory | null;
-  if (id) {
-    category = await repository.updateCategory(id, data);
-    if (!category) throw new Error("Categoria não encontrada.");
-  } else {
-    category = await repository.createCategory({
-      ...data,
-      slug: slugFrom(data.name, "a categoria"),
-    });
+  try {
+    let category: StoreCategory | null;
+    if (id) {
+      category = await repository.updateCategory(id, parsed.data);
+      if (!category) return { ok: false, error: "Categoria não encontrada." };
+    } else {
+      category = await repository.createCategory({
+        ...parsed.data,
+        slug: slugFrom(parsed.data.name, "a categoria"),
+      });
+    }
+    revalidateStore();
+    return { ok: true, data: category };
+  } catch (error) {
+    return { ok: false, error: messageOf(error) };
   }
-
-  revalidateStore();
-  return category;
 }
 
 export async function deleteStoreCategory(id: string): Promise<void> {

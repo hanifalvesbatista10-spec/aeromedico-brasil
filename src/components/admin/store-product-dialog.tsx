@@ -15,11 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { StoreVariantsEditor } from "@/components/admin/store-variants-editor";
 import { StoreImagesEditor } from "@/components/admin/store-images-editor";
-import {
-  saveStoreImages,
-  saveStoreProduct,
-  saveStoreVariants,
-} from "@/lib/actions/store";
+import { saveStoreProductBundle } from "@/lib/actions/store";
 import {
   draftToInput,
   emptyProductForm,
@@ -75,39 +71,31 @@ export function StoreProductDialog({
   async function handleSave() {
     setSaving(true);
     setError(null);
-    let savedId = productId;
     try {
-      const product = await saveStoreProduct({
-        id: savedId,
-        ...productFormToInput(form),
+      const result = await saveStoreProductBundle({
+        id: productId,
+        product: productFormToInput(form),
+        variants: variantRows.map((row, index) => draftToInput(row, index)),
+        images: imageRows.map((row, index) => imageDraftToInput(row, index)),
       });
-      savedId = product.id;
-      setProductId(product.id);
 
-      const variants = await saveStoreVariants(
-        product.id,
-        variantRows.map((row, index) => draftToInput(row, index))
-      );
-      const images = await saveStoreImages(
-        product.id,
-        imageRows.map((row, index) => imageDraftToInput(row, index))
-      );
-
-      onSaved({
-        product: { ...product, hasVariants: variants.length > 0 },
-        variants,
-        images,
-      });
+      // O servidor devolve o estado REAL do produto, também quando a gravação
+      // falha pela metade: o painel mostra o que de fato ficou salvo, e um novo
+      // "Salvar" atualiza o MESMO produto em vez de tentar criar outro.
+      if (result.detail) {
+        setProductId(result.detail.product.id);
+        onSaved(result.detail);
+      }
+      if (!result.ok) {
+        setError(result.error);
+        setSaving(false);
+        return;
+      }
       onClose();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Não foi possível salvar agora.";
-      setError(
-        savedId && savedId !== detail?.product.id
-          ? `O produto foi criado, mas houve um problema: ${message} Corrija e salve de novo.`
-          : message
-      );
-    } finally {
+    } catch {
+      // Falha inesperada (ex.: sessão expirada): em produção o Next não repassa
+      // a mensagem original de erros lançados por Server Actions.
+      setError("Não foi possível salvar agora. Atualize a página e tente de novo.");
       setSaving(false);
     }
   }

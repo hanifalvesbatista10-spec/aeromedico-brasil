@@ -97,12 +97,16 @@ export function StoreCategoriesPanel({
 
   function handleAdd() {
     void run(async () => {
-      const created = await saveStoreCategory({
+      const result = await saveStoreCategory({
         name: newName,
         published: true,
         sortOrder: categories.length,
       });
-      onChange([...categories, created]);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onChange([...categories, result.data]);
       setNewName("");
     });
   }
@@ -112,13 +116,17 @@ export function StoreCategoriesPanel({
     patch: { name: string; published: boolean }
   ) {
     void run(async () => {
-      const updated = await saveStoreCategory({
+      const result = await saveStoreCategory({
         id: category.id,
         name: patch.name,
         published: patch.published,
         sortOrder: category.sortOrder,
       });
-      onChange(categories.map((item) => (item.id === category.id ? updated : item)));
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onChange(categories.map((item) => (item.id === category.id ? result.data : item)));
     });
   }
 
