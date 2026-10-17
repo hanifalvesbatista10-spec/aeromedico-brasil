@@ -7,6 +7,7 @@ const staticRoutes = [
   "/formacoes",
   "/conteudos",
   "/gratuito",
+  "/loja",
   "/palestras",
   "/contato",
   "/politica-de-privacidade",
@@ -16,9 +17,14 @@ const staticRoutes = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const repositories = getRepositories();
-  const [programs, contentPosts] = await Promise.all([
+  const [programs, contentPosts, storeProducts] = await Promise.all([
     repositories.programs.list(),
     repositories.contentPosts.list(),
+    // O sitemap não pode cair por causa da loja (ex.: tabelas ainda não criadas).
+    repositories.store.listProducts().catch((error: unknown) => {
+      console.error("[sitemap] loja indisponível", error);
+      return [];
+    }),
   ]);
 
   const staticEntries: MetadataRoute.Sitemap = staticRoutes.map((route) => ({
@@ -38,5 +44,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: post.publishedAt,
     }));
 
-  return [...staticEntries, ...programEntries, ...contentEntries];
+  const storeEntries: MetadataRoute.Sitemap = storeProducts
+    .filter((product) => product.published)
+    .map((product) => ({
+      url: `${siteUrl}/loja/${product.slug}`,
+    }));
+
+  return [...staticEntries, ...programEntries, ...contentEntries, ...storeEntries];
 }
