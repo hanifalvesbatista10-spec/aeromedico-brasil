@@ -153,3 +153,63 @@ export interface Material {
   published: boolean;
   sortOrder: number;
 }
+
+// ---------------------------------------------------------------------
+// Loja de produtos físicos da marca principal. Dinheiro sempre em centavos.
+// ---------------------------------------------------------------------
+
+export interface StoreCategory {
+  id: string;
+  slug: string;
+  name: string;
+  published: boolean;
+  sortOrder: number;
+}
+
+export interface StoreProduct {
+  id: string;
+  slug: string;
+  categoryId: string | null;
+  name: string;
+  description: string;
+  basePriceCents: number;
+  /** Peso e dimensões de uma unidade embalada, usados no cálculo do frete. */
+  weightGrams: number;
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
+  /** `true` quando o produto é vendido por tamanho/cor. A RLS esconde variações não publicadas do visitante, então a lista vazia sozinha não distingue "produto único" de "todas despublicadas". */
+  hasVariants: boolean;
+  featured: boolean;
+  published: boolean;
+  sortOrder: number;
+  seoTitle: string | null;
+  seoDescription: string | null;
+}
+
+export interface StoreVariant {
+  id: string;
+  productId: string;
+  sku: string | null;
+  size: string | null;
+  colorName: string | null;
+  colorHex: string | null;
+  /** Preço próprio da variação; `null` usa `basePriceCents` do produto. */
+  priceCents: number | null;
+  /** Peso próprio da variação; `null` usa `weightGrams` do produto. */
+  weightGrams: number | null;
+  /** `null` = sem limite de estoque; `0` = esgotado. */
+  stock: number | null;
+  published: boolean;
+  sortOrder: number;
+}
+
+export interface StoreProductImage {
+  id: string;
+  productId: string;
+  url: string;
+  alt: string;
+  /** Quando preenchido, a foto aparece ao escolher essa cor. */
+  colorName: string | null;
+  sortOrder: number;
+}
