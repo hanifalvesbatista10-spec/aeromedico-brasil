@@ -169,3 +169,60 @@ export interface AdminUserRow {
   display_name: string | null;
   created_at: string;
 }
+
+export interface StoreCategoryRow {
+  id: string;
+  slug: string;
+  name: string;
+  published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreProductRow {
+  id: string;
+  slug: string;
+  category_id: string | null;
+  name: string;
+  description: string;
+  base_price_cents: number;
+  weight_grams: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
+  has_variants: boolean;
+  featured: boolean;
+  published: boolean;
+  sort_order: number;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreVariantRow {
+  id: string;
+  product_id: string;
+  sku: string | null;
+  size: string | null;
+  color_name: string | null;
+  color_hex: string | null;
+  price_cents: number | null;
+  weight_grams: number | null;
+  stock: number | null;
+  published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoreProductImageRow {
+  id: string;
+  product_id: string;
+  url: string;
+  alt: string;
+  color_name: string | null;
+  sort_order: number;
+  created_at: string;
+}
