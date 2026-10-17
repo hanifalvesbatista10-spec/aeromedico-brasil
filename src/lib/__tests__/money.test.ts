@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBRL, parseBRLToCents } from "../money";
+import { formatBRL, formatCentsForInput, parseBRLToCents } from "../money";
 
 const nbsp = (value: string) => value.replace(/ /g, " ");
 
@@ -34,5 +34,20 @@ describe("parseBRLToCents", () => {
     expect(parseBRLToCents("abc")).toBeNull();
     expect(parseBRLToCents("-5")).toBeNull();
     expect(parseBRLToCents("49,999")).toBeNull();
+  });
+});
+
+describe("formatCentsForInput", () => {
+  it("devolve o valor como o dono digita, sem símbolo nem milhar", () => {
+    expect(formatCentsForInput(4990)).toBe("49,90");
+    expect(formatCentsForInput(5000)).toBe("50,00");
+    expect(formatCentsForInput(5)).toBe("0,05");
+    expect(formatCentsForInput(123456)).toBe("1234,56");
+  });
+
+  it("volta ao mesmo valor ao passar pelo parser", () => {
+    for (const cents of [1, 99, 4990, 123456]) {
+      expect(parseBRLToCents(formatCentsForInput(cents))).toBe(cents);
+    }
   });
 });

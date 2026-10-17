@@ -5,6 +5,7 @@ const createProduct = vi.fn();
 const updateProduct = vi.fn();
 const removeProduct = vi.fn();
 const saveVariants = vi.fn();
+const listProducts = vi.fn();
 const revalidatePath = vi.fn();
 
 vi.mock("@/lib/auth/admin-guard", () => ({
@@ -13,7 +14,7 @@ vi.mock("@/lib/auth/admin-guard", () => ({
 vi.mock("@/lib/repositories", () => ({
   getRepositories: () => ({
     store: {
-      listProducts: async () => [{ id: "existente" }],
+      listProducts: () => listProducts(),
       createProduct,
       updateProduct,
       removeProduct,
@@ -23,7 +24,13 @@ vi.mock("@/lib/repositories", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => revalidatePath(...args) }));
 
-import { deleteStoreProduct, saveStoreProduct, saveStoreVariants } from "../store";
+import {
+  deleteStoreProduct,
+  moveStoreProduct,
+  saveStoreProduct,
+  saveStoreVariants,
+  toggleStoreProductPublished,
+} from "../store";
 
 const validInput = {
   name: "Camiseta Aeromédico",
@@ -46,6 +53,7 @@ beforeEach(() => {
   createProduct.mockImplementation(async (input) => ({ id: "novo", ...input }));
   updateProduct.mockImplementation(async (id, patch) => ({ id, ...patch }));
   saveVariants.mockResolvedValue([]);
+  listProducts.mockResolvedValue([{ id: "existente" }]);
 });
 
 describe("ações da loja", () => {
@@ -107,5 +115,41 @@ describe("ações da loja", () => {
       ])
     ).rejects.toThrow("Há variações repetidas");
     expect(saveVariants).not.toHaveBeenCalled();
+  });
+
+  it("publica e despublica um produto", async () => {
+    await toggleStoreProductPublished("abc", false);
+    expect(updateProduct).toHaveBeenCalledWith("abc", { published: false });
+    expect(revalidatePath).toHaveBeenCalledWith("/loja");
+  });
+
+  it("sem administrador, publicar e reordenar não chegam ao repositório", async () => {
+    requireAdmin.mockRejectedValue(new Error("Sessão administrativa não encontrada."));
+    await expect(toggleStoreProductPublished("abc", true)).rejects.toThrow("Sessão administrativa");
+    await expect(moveStoreProduct("abc", "down")).rejects.toThrow("Sessão administrativa");
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it("reordena trocando com o vizinho, renumera de 0 a n-1 e grava só o que mudou", async () => {
+    listProducts.mockResolvedValue([
+      { id: "a", sortOrder: 0 },
+      { id: "b", sortOrder: 2 },
+      { id: "c", sortOrder: 2 },
+    ]);
+    await moveStoreProduct("a", "down");
+    const updates = Object.fromEntries(
+      updateProduct.mock.calls.map(([id, patch]) => [id, patch.sortOrder])
+    );
+    expect(updates).toEqual({ b: 0, a: 1 });
+  });
+
+  it("não faz nada ao mover o primeiro para cima ou o último para baixo", async () => {
+    listProducts.mockResolvedValue([
+      { id: "a", sortOrder: 0 },
+      { id: "b", sortOrder: 1 },
+    ]);
+    await moveStoreProduct("a", "up");
+    await moveStoreProduct("b", "down");
+    expect(updateProduct).not.toHaveBeenCalled();
   });
 });

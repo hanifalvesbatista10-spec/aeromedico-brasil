@@ -41,3 +41,8 @@ export function parseBRLToCents(input: string): number | null {
   const cents = Math.round(Number(normalized) * 100);
   return Number.isFinite(cents) ? cents : null;
 }
+
+/** Valor em centavos como o dono o digita no campo de preço (ex.: 4990 → "49,90"). */
+export function formatCentsForInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
