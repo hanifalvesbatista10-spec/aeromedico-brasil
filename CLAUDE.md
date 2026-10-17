@@ -8,7 +8,7 @@ Referências: `README.md`, `docs/superpowers/specs/*` (design), `docs/superpower
 
 ## Regras permanentes
 
-- Não commitar, não dar push e não fazer deploy sem aprovação explícita do usuário.
+- Trabalhar sempre na branch `main` do projeto, sem criar branches novas. Commits locais podem ser feitos. Não dar push e não fazer deploy sem aprovação explícita do usuário: na Vercel, push na `main` publica o site.
 - Supabase: apenas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Nunca `service_role`, secret key ou `ANON_KEY`. Autorização = RLS + `is_admin()`.
 - Migrations e SQL remoto nunca são aplicados por agentes: entregue o arquivo em `supabase/migrations/` e o usuário executa. O projeto Supabase `hanif-alves-plataforma` é de outro produto: não recebe este schema.
 - Nunca ler ou imprimir valores de `.env.local`; citar apenas nomes de variáveis.
@@ -51,7 +51,7 @@ Subagentes não criam outros subagentes. **A sessão principal é a orquestrador
 4. **Ordem típica de uma feature:** `nextjs-architect` (estrutura) → `supabase-cms-engineer` (dados) → `ui-design-lead` / `motion-media-engineer` (interface) → `copy-editor-ptbr` (texto) → `qa-verification-engineer` (portões) → `a11y-seo-auditor` e `security-release-reviewer` (revisões, em paralelo).
 5. **Verificar:** nada é declarado pronto sem `superpowers:verification-before-completion`. Portões: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, mais checagem em navegador quando houver mudança visual.
 6. **Revisar:** `superpowers:requesting-code-review` antes de propor commit. Achados de agentes são conferidos pela orquestradora antes de aplicados.
-7. **Integrar:** commit/PR somente com aprovação do usuário, via `superpowers:finishing-a-development-branch`.
+7. **Integrar:** commits locais direto na `main` (sem branches de feature). Push e deploy só com aprovação do usuário; não usar `superpowers:finishing-a-development-branch` para criar PR ou branch.
 
 ## Comandos
 
