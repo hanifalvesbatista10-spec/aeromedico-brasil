@@ -6,6 +6,10 @@ import type {
   Program,
   SiteSettings,
   SpeakingTopic,
+  StoreCategory,
+  StoreProduct,
+  StoreProductImage,
+  StoreVariant,
   Testimonial,
 } from "@/lib/types";
 
@@ -63,4 +67,36 @@ export interface MaterialsRepository {
 export interface SettingsRepository {
   get(): Promise<SiteSettings>;
   update(patch: Partial<SiteSettings>): Promise<SiteSettings>;
+}
+
+export const DUPLICATE_STORE_SLUG_MESSAGE =
+  "Já existe um produto com este endereço (slug).";
+
+export interface StoreProductDetail {
+  product: StoreProduct;
+  variants: StoreVariant[];
+  images: StoreProductImage[];
+}
+
+export interface StoreRepository {
+  listCategories(): Promise<StoreCategory[]>;
+  /** O visitante só recebe publicados (RLS); o administrador recebe todos. */
+  listProducts(): Promise<StoreProduct[]>;
+  getProductBySlug(slug: string): Promise<StoreProductDetail | null>;
+  createProduct(input: Omit<StoreProduct, "id">): Promise<StoreProduct>;
+  updateProduct(id: string, patch: Partial<StoreProduct>): Promise<StoreProduct | null>;
+  removeProduct(id: string): Promise<void>;
+  /** Substitui o conjunto de variações e atualiza `hasVariants` do produto. */
+  saveVariants(
+    productId: string,
+    variants: Omit<StoreVariant, "id" | "productId">[]
+  ): Promise<StoreVariant[]>;
+  /** Substitui o conjunto de fotos do produto. */
+  saveImages(
+    productId: string,
+    images: Omit<StoreProductImage, "id" | "productId">[]
+  ): Promise<StoreProductImage[]>;
+  createCategory(input: Omit<StoreCategory, "id">): Promise<StoreCategory>;
+  updateCategory(id: string, patch: Partial<StoreCategory>): Promise<StoreCategory | null>;
+  removeCategory(id: string): Promise<void>;
 }
