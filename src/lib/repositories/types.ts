@@ -82,6 +82,8 @@ export interface StoreRepository {
   listCategories(): Promise<StoreCategory[]>;
   /** O visitante só recebe publicados (RLS); o administrador recebe todos. */
   listProducts(): Promise<StoreProduct[]>;
+  /** Produtos com variações e fotos em poucas consultas, na ordem de exibição. */
+  listProductDetails(): Promise<StoreProductDetail[]>;
   getProductBySlug(slug: string): Promise<StoreProductDetail | null>;
   createProduct(input: Omit<StoreProduct, "id">): Promise<StoreProduct>;
   updateProduct(id: string, patch: Partial<StoreProduct>): Promise<StoreProduct | null>;

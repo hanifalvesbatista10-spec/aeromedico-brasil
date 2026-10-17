@@ -32,6 +32,20 @@ export function createMockStoreRepository(): StoreRepository {
       return [...products].sort(bySort).map((p) => ({ ...p }));
     },
 
+    async listProductDetails() {
+      return [...products].sort(bySort).map((product) => ({
+        product: { ...product },
+        variants: variants
+          .filter((v) => v.productId === product.id)
+          .sort(bySort)
+          .map((v) => ({ ...v })),
+        images: images
+          .filter((i) => i.productId === product.id)
+          .sort(bySort)
+          .map((i) => ({ ...i })),
+      }));
+    },
+
     async getProductBySlug(slug) {
       const product = products.find((p) => p.slug === slug);
       if (!product) return null;

@@ -171,4 +171,26 @@ describe("mock store repository", () => {
     expect((await a.listProducts())[0].name).toBe("Camiseta de teste");
     expect(await b.listProducts()).toEqual([]);
   });
+
+  it("listProductDetails devolve cada produto com suas variações e fotos, na ordem de exibição", async () => {
+    const repo = createMockStoreRepository();
+    const b = await repo.createProduct(newProduct({ slug: "b", name: "B", sortOrder: 1 }));
+    const a = await repo.createProduct(newProduct({ slug: "a", name: "A", sortOrder: 0 }));
+    await repo.saveVariants(a.id, [newVariant({ size: "P" }), newVariant({ size: "M" })]);
+    await repo.saveImages(b.id, [
+      { url: "https://x/b.webp", alt: "B", colorName: null, sortOrder: 0 },
+    ]);
+
+    const details = await repo.listProductDetails();
+
+    expect(details.map((d) => d.product.slug)).toEqual(["a", "b"]);
+    expect(details[0].variants.map((v) => v.size)).toEqual(["P", "M"]);
+    expect(details[0].images).toEqual([]);
+    expect(details[1].variants).toEqual([]);
+    expect(details[1].images.map((i) => i.url)).toEqual(["https://x/b.webp"]);
+  });
+
+  it("listProductDetails devolve lista vazia quando não há produtos", async () => {
+    expect(await createMockStoreRepository().listProductDetails()).toEqual([]);
+  });
 });
