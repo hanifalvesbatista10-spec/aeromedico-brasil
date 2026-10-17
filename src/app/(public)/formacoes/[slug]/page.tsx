@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getRepositories } from "@/lib/repositories";
 import { buildCourseJsonLd } from "@/lib/seo/json-ld";
+import { programTypeLabel, resolveProgramCta } from "@/lib/programs/cta";
 import type { ProgramFormat, ProgramStatus } from "@/lib/types";
 
 const formatLabels: Record<ProgramFormat, string> = {
@@ -46,9 +47,14 @@ export default async function FormacaoPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const program = await getRepositories().programs.getBySlug(slug);
+  const repositories = getRepositories();
+  const [program, settings] = await Promise.all([
+    repositories.programs.getBySlug(slug),
+    repositories.settings.get(),
+  ]);
   if (!program || !program.published) notFound();
   const courseJsonLd = buildCourseJsonLd(program);
+  const cta = resolveProgramCta(program, settings.whatsappUrl);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:py-24 lg:px-8">
@@ -64,6 +70,7 @@ export default async function FormacaoPage({
       </h1>
 
       <div className="mt-4 flex flex-wrap gap-2">
+        <Badge variant="outline">{programTypeLabel(program.type)}</Badge>
         {program.durationHours && (
           <Badge variant="secondary">{program.durationHours}h</Badge>
         )}
@@ -81,14 +88,14 @@ export default async function FormacaoPage({
       </p>
 
       <div className="mt-10 border-t border-gray-300 pt-8">
-        {program.enrollUrl ? (
+        {cta.href ? (
           <a
-            href={program.enrollUrl}
+            href={cta.href}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(buttonVariants({ size: "lg" }))}
           >
-            {program.ctaLabel}
+            {cta.label}
           </a>
         ) : (
           <span
@@ -98,7 +105,7 @@ export default async function FormacaoPage({
               "pointer-events-none opacity-60"
             )}
           >
-            Inscrições em breve
+            {cta.label}
           </span>
         )}
       </div>

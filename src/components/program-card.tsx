@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { programTypeLabel } from "@/lib/programs/cta";
 import type { Program, ProgramFormat, ProgramStatus } from "@/lib/types";
 
 const formatLabels: Record<ProgramFormat, string> = {
@@ -36,9 +37,12 @@ export function ProgramCard({ program }: { program: Program }) {
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className="text-xs font-semibold tracking-wide text-navy-700 uppercase">
-          {program.category}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{programTypeLabel(program.type)}</Badge>
+          <p className="text-xs font-semibold tracking-wide text-navy-700 uppercase">
+            {program.category}
+          </p>
+        </div>
         <h3 className="mt-2 font-heading text-h4 font-semibold text-navy-950">
           {program.title}
         </h3>
