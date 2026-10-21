@@ -4,10 +4,13 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import Image from "next/image";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
 import { useCart } from "@/hooks/use-cart";
 import { priceCartAction } from "@/lib/actions/cart";
 import { MAX_LINE_QUANTITY, lineKey, serializeCart } from "@/lib/cart/cart";
+import { evaluateCoupon, type CartCoupon } from "@/lib/cart/coupon";
 import type { PricedCart, PricedLine } from "@/lib/cart/pricing";
 import { buildCartWhatsappMessage } from "@/lib/cart/whatsapp-message";
 import { formatBRL } from "@/lib/money";
@@ -16,7 +19,12 @@ import { buildWhatsappLink } from "@/lib/utils/whatsapp";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ready"; cart: PricedCart }
+  | {
+      status: "ready";
+      cart: PricedCart;
+      coupon: CartCoupon | null;
+      couponError: string | null;
+    }
   | { status: "error"; message: string };
 
 const focusRing =
@@ -54,6 +62,9 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
   const [stockNotes, setStockNotes] = useState<Record<string, number>>({});
   // Região de status sempre montada: é ela que o leitor de tela anuncia.
   const [announcement, setAnnouncement] = useState("");
+  // Texto digitado no campo e código já enviado ao servidor (cupom aplicado ou tentado).
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const latestRequest = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -65,7 +76,11 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     if (cart.lines.length === 0) return;
     const request = ++latestRequest.current;
 
-    priceCartAction(cart.lines)
+    const pricing = appliedCode
+      ? priceCartAction(cart.lines, appliedCode)
+      : priceCartAction(cart.lines);
+
+    pricing
       .then((result) => {
         if (request !== latestRequest.current) return;
         if (!result.ok) {
@@ -88,7 +103,12 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
           );
           reduced.forEach((line) => setQuantity(line.key, line.quantity));
         }
-        setState({ status: "ready", cart: result.cart });
+        setState({
+          status: "ready",
+          cart: result.cart,
+          coupon: result.coupon,
+          couponError: result.couponError,
+        });
       })
       .catch(() => {
         if (request !== latestRequest.current) return;
@@ -99,7 +119,7 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
       });
     // `cart.lines` entra por `cartSignature`: o array muda de referência sem mudar de conteúdo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartSignature, attempt, setQuantity]);
+  }, [cartSignature, attempt, appliedCode, setQuantity]);
 
   function dropNote(key: string) {
     setStockNotes(({ [key]: _dropped, ...rest }) => {
@@ -120,6 +140,16 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     rootRef.current?.focus();
     cart.remove(key);
     setAnnouncement(`${label} removido do carrinho.`);
+  }
+
+  function applyCoupon() {
+    const code = couponInput.trim();
+    if (code) setAppliedCode(code);
+  }
+
+  function removeCoupon() {
+    setAppliedCode(null);
+    setCouponInput("");
   }
 
   function renderContent(): ReactNode {
@@ -175,9 +205,26 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     // Itens que acabaram de entrar (ex.: outra aba) ainda não foram precificados.
     if (lines.length === 0 && unavailable.length === 0) return <LoadingText />;
 
+    // O desconto é recalculado aqui com as regras que o servidor aprovou, para
+    // responder na hora a mudanças de quantidade; o servidor reconfere a cada resposta.
+    const coupon = state.coupon;
+    const evaluation = coupon ? evaluateCoupon(coupon, subtotalCents, new Date()) : null;
+    const discountCents = evaluation?.ok ? evaluation.discountCents : 0;
+    const couponMessage = evaluation && !evaluation.ok ? evaluation.message : null;
+    const totalCents = subtotalCents - discountCents;
+
     const whatsappHref =
       lines.length > 0
-        ? buildWhatsappLink(whatsappUrl, buildCartWhatsappMessage(lines, subtotalCents))
+        ? buildWhatsappLink(
+            whatsappUrl,
+            buildCartWhatsappMessage(
+              lines,
+              subtotalCents,
+              coupon && discountCents > 0
+                ? { coupon: { code: coupon.code, discountCents } }
+                : {}
+            )
+          )
         : null;
 
     return (
@@ -317,12 +364,69 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
         </div>
 
         <aside className="h-fit rounded-lg border border-border p-5" aria-label="Resumo do pedido">
-          <p className="flex items-baseline justify-between text-base">
-            <span className="font-medium text-navy-950">Subtotal</span>
-            <span data-testid="cart-subtotal" className="text-xl font-semibold text-navy-950">
-              {formatBRL(subtotalCents)}
-            </span>
-          </p>
+          <div className="space-y-2">
+            <p className="flex items-baseline justify-between text-base">
+              <span className="font-medium text-navy-950">Subtotal</span>
+              <span data-testid="cart-subtotal" className="text-xl font-semibold text-navy-950">
+                {formatBRL(subtotalCents)}
+              </span>
+            </p>
+            {coupon && discountCents > 0 && (
+              <>
+                <p className="flex items-baseline justify-between text-sm text-green-800">
+                  <span>Desconto ({coupon.code})</span>
+                  <span data-testid="cart-discount">-{formatBRL(discountCents)}</span>
+                </p>
+                <p className="flex items-baseline justify-between border-t border-border pt-2 text-base">
+                  <span className="font-medium text-navy-950">Total</span>
+                  <span data-testid="cart-total" className="text-xl font-semibold text-navy-950">
+                    {formatBRL(totalCents)}
+                  </span>
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="mt-4 border-t border-border pt-4">
+            {coupon ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-navy-950">{`Cupom ${coupon.code} aplicado`}</p>
+                {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
+                <button type="button" onClick={removeCoupon} className={textAction}>
+                  Remover cupom
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  applyCoupon();
+                }}
+                className="space-y-2"
+              >
+                <Label htmlFor="cart-coupon">Cupom de desconto</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="cart-coupon"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    className="h-11"
+                  />
+                  <Button type="submit" variant="outline" className="h-11" disabled={!couponInput.trim()}>
+                    Aplicar
+                  </Button>
+                </div>
+                {state.couponError && (
+                  <p role="alert" className="text-sm text-red-800">
+                    {state.couponError}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+
           <p className="mt-3 text-sm text-gray-600">
             O frete e a forma de pagamento são combinados no WhatsApp.
           </p>

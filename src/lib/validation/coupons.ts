@@ -7,6 +7,8 @@ import type { StoreCoupon } from "@/lib/types";
 // datas chegam em ISO: a conversão do campo `datetime-local` acontece no
 // navegador, que conhece o fuso do dono (src/lib/store/coupon-drafts.ts).
 
+/** Maior código aceito (a regra do formulário e a do carrinho são a mesma). */
+export const MAX_COUPON_CODE_LENGTH = 32;
 const CODE_RE = /^[A-Z0-9_-]{3,32}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
 

@@ -31,7 +31,7 @@ function reject(reason: CouponRejection, message: string): CouponEvaluation {
  * cupom inativo nem chega pela consulta pública.
  */
 export function evaluateCoupon(
-  coupon: StoreCoupon,
+  coupon: CartCoupon,
   subtotalCents: number,
   now: Date
 ): CouponEvaluation {
@@ -56,4 +56,23 @@ export function evaluateCoupon(
       ? Math.floor((subtotalCents * coupon.value) / 100)
       : coupon.value;
   return { ok: true, discountCents: Math.max(0, Math.min(raw, subtotalCents)) };
+}
+
+/** O que o navegador recebe de um cupom aceito: as regras, para recalcular o desconto na hora. */
+export type CartCoupon = Pick<
+  StoreCoupon,
+  "code" | "kind" | "value" | "minOrderCents" | "startsAt" | "expiresAt" | "maxUses" | "usesCount"
+>;
+
+export function toCartCoupon(coupon: StoreCoupon): CartCoupon {
+  return {
+    code: coupon.code,
+    kind: coupon.kind,
+    value: coupon.value,
+    minOrderCents: coupon.minOrderCents,
+    startsAt: coupon.startsAt,
+    expiresAt: coupon.expiresAt,
+    maxUses: coupon.maxUses,
+    usesCount: coupon.usesCount,
+  };
 }

@@ -49,6 +49,28 @@ describe("buildCartWhatsappMessage", () => {
     );
   });
 
+  it("com cupom, entram o desconto e o total entre o subtotal e a pergunta", () => {
+    const message = buildCartWhatsappMessage([line()], 9980, {
+      coupon: { code: "VERAO10", discountCents: 998 },
+    });
+    expect(message).toBe(
+      [
+        "Olá! Quero finalizar este pedido:",
+        "- 2x Camiseta Aeromédico (M, Preta): R$ 99,80",
+        "Subtotal: R$ 99,80",
+        "Cupom VERAO10: -R$ 9,98",
+        "Total: R$ 89,82",
+        "Pode me passar o valor do frete e as formas de pagamento?",
+      ].join("\n")
+    );
+  });
+
+  it("sem cupom a mensagem é a de sempre", () => {
+    expect(buildCartWhatsappMessage([line()], 9980, {})).toBe(
+      buildCartWhatsappMessage([line()], 9980)
+    );
+  });
+
   it("só tamanho ou só cor aparece sem vírgula sobrando", () => {
     expect(buildCartWhatsappMessage([line({ colorName: null })], 9980)).toContain(
       "(M):"
@@ -66,9 +88,13 @@ describe("buildCartWhatsappMessage", () => {
         colorName: "Camuflada desértica",
       })
     );
-    const message = buildCartWhatsappMessage(many, 50 * 9980);
+    const message = buildCartWhatsappMessage(many, 50 * 9980, {
+      coupon: { code: "VERAO10", discountCents: 49900 },
+    });
 
     expect(encodeURIComponent(message).length).toBeLessThanOrEqual(1800);
+    expect(message).toContain("Cupom VERAO10: -R$ 499,00");
+    expect(message).toContain("Total: R$ 4.491,00");
     expect(message.startsWith("Olá! Quero finalizar este pedido:")).toBe(true);
     expect(message).toContain("Subtotal: R$ 4.990,00");
     expect(message.endsWith("Pode me passar o valor do frete e as formas de pagamento?")).toBe(

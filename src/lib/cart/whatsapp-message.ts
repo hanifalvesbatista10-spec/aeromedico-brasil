@@ -19,13 +19,25 @@ function itemText(line: PricedLine): string {
   )}`;
 }
 
+export interface CartMessageExtras {
+  coupon?: { code: string; discountCents: number };
+}
+
 /** Texto do pedido que o cliente envia ao WhatsApp do dono. */
 export function buildCartWhatsappMessage(
   lines: PricedLine[],
-  subtotalCents: number
+  subtotalCents: number,
+  extras: CartMessageExtras = {}
 ): string {
   const items = lines.map(itemText);
-  const footer = [`Subtotal: ${money(subtotalCents)}`, QUESTION];
+  const footer = [`Subtotal: ${money(subtotalCents)}`];
+  if (extras.coupon) {
+    footer.push(
+      `Cupom ${extras.coupon.code}: -${money(extras.coupon.discountCents)}`,
+      `Total: ${money(subtotalCents - extras.coupon.discountCents)}`
+    );
+  }
+  footer.push(QUESTION);
 
   for (let shown = items.length; shown >= 0; shown--) {
     const omitted = items.length - shown;

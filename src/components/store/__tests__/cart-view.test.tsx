@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import type { PricedCart, PricedLine, UnavailableLine } from "@/lib/cart/pricing";
+import type { CartCoupon } from "@/lib/cart/coupon";
 
 const priceCartAction = vi.fn();
 vi.mock("@/lib/actions/cart", () => ({
@@ -49,8 +50,11 @@ function cartOf(lines: PricedLine[], unavailable: UnavailableLine[] = []): Price
 }
 
 // "Servidor" falso: precifica o que veio do navegador, como a action real.
-function fakeServer(maxByKey: Record<string, number> = {}) {
-  priceCartAction.mockImplementation(async (lines: StoredLine[]) => {
+function fakeServer(
+  maxByKey: Record<string, number> = {},
+  extra: { coupon?: CartCoupon | null; couponError?: string | null } = {}
+) {
+  priceCartAction.mockImplementation(async (lines: StoredLine[], code?: string) => {
     const out = lines.map((l) => {
       const key = `${l.productId}:${l.variantId ?? "-"}`;
       const max = maxByKey[key] ?? null;
@@ -64,7 +68,7 @@ function fakeServer(maxByKey: Record<string, number> = {}) {
           });
       return { ...base, quantity, maxQuantity: max, reduced: quantity < l.quantity, lineTotalCents: base.unitPriceCents * quantity };
     });
-    return { ok: true, cart: cartOf(out) };
+    return { ok: true, cart: cartOf(out), coupon: code ? (extra.coupon ?? null) : null, couponError: code ? (extra.couponError ?? null) : null };
   });
 }
 
@@ -156,6 +160,8 @@ describe("CartView", () => {
     seed([cap(1), shirt(1)]);
     priceCartAction.mockResolvedValue({
       ok: true,
+      coupon: null,
+      couponError: null,
       cart: cartOf(
         [priced({ key: "bone:-", productId: "bone", variantId: null, slug: "bone", name: "Boné", size: null, colorName: null, unitPriceCents: 2000, lineTotalCents: 2000 })],
         [{ key: "camiseta:m-preta", productId: "camiseta", variantId: "m-preta", reason: "sold-out", name: "Camiseta Aeromédico" }]
@@ -306,8 +312,125 @@ describe("CartView", () => {
     await waitFor(() => expect(money(screen.getByTestId("cart-subtotal").textContent)).toContain("R$ 60,00"));
 
     await act(async () => {
-      releaseFirst({ ok: true, cart: cartOf([priced({ key: "bone:-", productId: "bone", variantId: null, name: "Boné", size: null, colorName: null, unitPriceCents: 1000, quantity: 1, lineTotalCents: 1000 })]) });
+      releaseFirst({ ok: true, coupon: null, couponError: null, cart: cartOf([priced({ key: "bone:-", productId: "bone", variantId: null, name: "Boné", size: null, colorName: null, unitPriceCents: 1000, quantity: 1, lineTotalCents: 1000 })]) });
     });
     expect(money(screen.getByTestId("cart-subtotal").textContent)).toContain("R$ 60,00");
+  });
+});
+
+const VERAO10: CartCoupon = {
+  code: "VERAO10",
+  kind: "percent",
+  value: 10,
+  minOrderCents: 0,
+  startsAt: null,
+  expiresAt: null,
+  maxUses: null,
+  usesCount: 0,
+};
+
+async function applyCode(code = "verao10") {
+  fireEvent.change(screen.getByLabelText("Cupom de desconto"), { target: { value: code } });
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+}
+
+describe("CartView com cupom", () => {
+  it("há campo de cupom e botão Aplicar quando o carrinho tem itens", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    expect(screen.getByLabelText("Cupom de desconto")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Aplicar" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("aplicar envia o código, mostra o desconto e o total", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    await applyCode();
+
+    await waitFor(() => expect(priceCartAction).toHaveBeenLastCalledWith([shirt(2)], "verao10"));
+    expect(await screen.findByText("Cupom VERAO10 aplicado")).toBeTruthy();
+    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("-R$ 9,98");
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 89,82");
+  });
+
+  it("mexer na quantidade recalcula desconto e total na hora, antes da nova resposta", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    // A próxima resposta do servidor nunca chega: só vale o cálculo local.
+    priceCartAction.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+
+    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("-R$ 14,97");
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 134,73");
+  });
+
+  it("cair abaixo do pedido mínimo tira o desconto e explica o mínimo", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: { ...VERAO10, minOrderCents: 9000 } });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    priceCartAction.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Diminuir quantidade de Camiseta Aeromédico, M, Preta" }));
+
+    expect(screen.queryByTestId("cart-discount")).toBeNull();
+    expect(screen.getByText(/Este cupom vale para pedidos a partir de/).textContent?.replace(/ /g, " ")).toContain(
+      "R$ 90,00"
+    );
+  });
+
+  it("mensagem do servidor sobre o código aparece em alerta, sem derrubar o carrinho", async () => {
+    seed([shirt(1)]);
+    fakeServer({}, { couponError: "Cupom não encontrado." });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    await applyCode("naoexiste");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Cupom não encontrado.");
+    expect(screen.getByText("Camiseta Aeromédico")).toBeTruthy();
+    expect(screen.queryByTestId("cart-discount")).toBeNull();
+  });
+
+  it("'Remover cupom' volta a precificar sem código", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    fakeServer();
+    fireEvent.click(screen.getByRole("button", { name: "Remover cupom" }));
+
+    await waitFor(() => expect(priceCartAction).toHaveBeenLastCalledWith([shirt(2)]));
+    await waitFor(() => expect(screen.queryByTestId("cart-discount")).toBeNull());
+    expect(screen.getByLabelText("Cupom de desconto")).toBeTruthy();
+  });
+
+  it("o link do WhatsApp leva o cupom e o total", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
+    const text = decodeURIComponent(href.split("?text=")[1]);
+    expect(text).toContain("Cupom VERAO10: -R$ 9,98");
+    expect(text).toContain("Total: R$ 89,82");
   });
 });
