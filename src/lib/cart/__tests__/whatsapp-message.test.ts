@@ -65,6 +65,49 @@ describe("buildCartWhatsappMessage", () => {
     );
   });
 
+  const shipping = { label: "Correios PAC", cep: "01018020", priceCents: 2345 };
+
+  it("com frete, entram a linha de frete e o total, e a pergunta passa a ser só sobre pagamento", () => {
+    const message = buildCartWhatsappMessage([line()], 9980, { shipping });
+    expect(message).toBe(
+      [
+        "Olá! Quero finalizar este pedido:",
+        "- 2x Camiseta Aeromédico (M, Preta): R$ 99,80",
+        "Subtotal: R$ 99,80",
+        "Frete (Correios PAC, CEP 01018-020): R$ 23,45",
+        "Total: R$ 123,25",
+        "Pode me passar as formas de pagamento?",
+      ].join("\n")
+    );
+  });
+
+  it("com cupom e frete, a ordem é subtotal, cupom, frete, total", () => {
+    const message = buildCartWhatsappMessage([line()], 9980, {
+      coupon: { code: "VERAO10", discountCents: 998 },
+      shipping,
+    });
+    expect(message.split("\n").slice(-5)).toEqual([
+      "Subtotal: R$ 99,80",
+      "Cupom VERAO10: -R$ 9,98",
+      "Frete (Correios PAC, CEP 01018-020): R$ 23,45",
+      "Total: R$ 113,27",
+      "Pode me passar as formas de pagamento?",
+    ]);
+  });
+
+  it("carrinho grande com cupom e frete continua dentro do limite e mantém frete e total", () => {
+    const many = Array.from({ length: 50 }, (_, i) =>
+      line({ key: `p${i}:v`, name: `Camiseta Aeromédico edição especial número ${i}` })
+    );
+    const message = buildCartWhatsappMessage(many, 50 * 9980, {
+      coupon: { code: "VERAO10", discountCents: 49900 },
+      shipping,
+    });
+    expect(encodeURIComponent(message).length).toBeLessThanOrEqual(1800);
+    expect(message).toContain("Frete (Correios PAC, CEP 01018-020): R$ 23,45");
+    expect(message).toContain("Total: R$ 4.514,45");
+  });
+
   it("sem cupom a mensagem é a de sempre", () => {
     expect(buildCartWhatsappMessage([line()], 9980, {})).toBe(
       buildCartWhatsappMessage([line()], 9980)

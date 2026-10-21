@@ -1,4 +1,5 @@
 import { formatBRL } from "@/lib/money";
+import { formatCep } from "@/lib/shipping/cep";
 import type { PricedLine } from "./pricing";
 
 // Links do WhatsApp têm limite de tamanho; acima disso o texto some ou quebra.
@@ -6,6 +7,7 @@ const MAX_ENCODED_LENGTH = 1800;
 
 const HEADER = "Olá! Quero finalizar este pedido:";
 const QUESTION = "Pode me passar o valor do frete e as formas de pagamento?";
+const QUESTION_WITH_SHIPPING = "Pode me passar as formas de pagamento?";
 
 // O Intl usa espaço sem quebra entre "R$" e o valor; no WhatsApp basta o comum.
 function money(cents: number): string {
@@ -21,6 +23,7 @@ function itemText(line: PricedLine): string {
 
 export interface CartMessageExtras {
   coupon?: { code: string; discountCents: number };
+  shipping?: { label: string; cep: string; priceCents: number };
 }
 
 /** Texto do pedido que o cliente envia ao WhatsApp do dono. */
@@ -32,12 +35,23 @@ export function buildCartWhatsappMessage(
   const items = lines.map(itemText);
   const footer = [`Subtotal: ${money(subtotalCents)}`];
   if (extras.coupon) {
+    footer.push(`Cupom ${extras.coupon.code}: -${money(extras.coupon.discountCents)}`);
+  }
+  if (extras.shipping) {
     footer.push(
-      `Cupom ${extras.coupon.code}: -${money(extras.coupon.discountCents)}`,
-      `Total: ${money(subtotalCents - extras.coupon.discountCents)}`
+      `Frete (${extras.shipping.label}, CEP ${formatCep(extras.shipping.cep)}): ${money(
+        extras.shipping.priceCents
+      )}`
     );
   }
-  footer.push(QUESTION);
+  if (extras.coupon || extras.shipping) {
+    const total =
+      subtotalCents -
+      (extras.coupon?.discountCents ?? 0) +
+      (extras.shipping?.priceCents ?? 0);
+    footer.push(`Total: ${money(total)}`);
+  }
+  footer.push(extras.shipping ? QUESTION_WITH_SHIPPING : QUESTION);
 
   for (let shown = items.length; shown >= 0; shown--) {
     const omitted = items.length - shown;
