@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
+import { CartLink } from "./cart-link";
 import { MobileMenu } from "./mobile-menu";
 import { navLinks } from "./nav-links";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,7 @@ export function Header({ primaryCta }: { primaryCta: CTAConfig }) {
         </nav>
 
         <div className="flex items-center gap-2 text-white">
+          <CartLink />
           <Link
             href={primaryCta.href}
             className={cn(buttonVariants({ variant: "brand" }), "hidden xl:inline-flex")}
