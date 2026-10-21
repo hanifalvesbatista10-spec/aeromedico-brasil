@@ -4,6 +4,7 @@ import {
   emptyProductForm,
   imageDraftToInput,
   imageToDraft,
+  newVariantDraft,
   productFormToInput,
   productToForm,
   variantToDraft,
@@ -95,6 +96,22 @@ describe("variação no formulário", () => {
     expect(draft.key).toBeTruthy();
   });
 
+  it("variação já salva leva o id até a validação; variação nova não leva", () => {
+    const saved = draftToInput(variantToDraft(variant), 0);
+    expect(saved.id).toBe("v1");
+    const parsed = storeVariantsSchema.safeParse([saved]);
+    expect(parsed.success && parsed.data[0].id).toBe("v1");
+
+    const fresh = draftToInput(newVariantDraft(), 0);
+    expect(fresh.id).toBeUndefined();
+  });
+
+  it("ids repetidos na mesma lista são barrados", () => {
+    const one = draftToInput(variantToDraft(variant), 0);
+    const two = draftToInput(variantToDraft({ ...variant, size: "G" }), 1);
+    expect(storeVariantsSchema.safeParse([one, { ...two, id: "v1" }]).success).toBe(false);
+  });
+
   it("estoque e preço nulos viram vazio", () => {
     const draft = variantToDraft({ ...variant, priceCents: null, stock: null });
     expect(draft.price).toBe("");
@@ -104,7 +121,10 @@ describe("variação no formulário", () => {
   it("draftToInput usa a posição como ordem e passa na validação com os mesmos valores", () => {
     const inputs = [
       draftToInput(variantToDraft(variant), 0),
-      draftToInput(variantToDraft({ ...variant, size: "G", priceCents: null, stock: null }), 1),
+      draftToInput(
+        variantToDraft({ ...variant, id: "v2", size: "G", priceCents: null, stock: null }),
+        1
+      ),
     ];
     expect(inputs.map((i) => i.sortOrder)).toEqual([0, 1]);
 

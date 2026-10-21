@@ -160,8 +160,10 @@ preenchidas com informação real antes de publicar.
   Faltam as fotos reais de cada cor.
 - A compra ainda é pelo WhatsApp do cliente. Carrinho, cupom, frete (Melhor Envio),
   pagamento e área do cliente são as próximas fases (ver `docs/superpowers/specs/`).
-- Antes do carrinho: trocar `saveVariants` por atualização por `id` (hoje cada
-  salvamento recria as variações com ids novos).
+- As variações mantêm o `id` ao salvar o produto (atualização por `id`), base para
+  carrinho e pedidos. Trocar tamanho/cor entre duas variações na mesma gravação pode
+  esbarrar no índice único; nesse caso a mensagem aparece e a troca vai em dois
+  salvamentos.
 
 **Contato**
 - `whatsapp_url` no seed (e em `src/data/settings.ts`) é o placeholder

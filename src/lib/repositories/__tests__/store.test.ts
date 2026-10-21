@@ -113,6 +113,43 @@ describe("mock store repository", () => {
     expect(found?.product.hasVariants).toBe(false);
   });
 
+  it("saveVariants mantém o id de quem já existe, cria quem é novo e apaga quem saiu", async () => {
+    const repo = createMockStoreRepository();
+    const product = await repo.createProduct(newProduct());
+    const [p, m] = await repo.saveVariants(product.id, [
+      newVariant({ size: "P", sortOrder: 0 }),
+      newVariant({ size: "M", sortOrder: 1 }),
+    ]);
+
+    const saved = await repo.saveVariants(product.id, [
+      { ...newVariant({ size: "P", stock: 7, sortOrder: 0 }), id: p.id },
+      newVariant({ size: "G", sortOrder: 1 }),
+    ]);
+
+    expect(saved.map((v) => v.size)).toEqual(["P", "G"]);
+    expect(saved[0].id).toBe(p.id);
+    expect(saved[0].stock).toBe(7);
+    expect(saved[1].id).not.toBe(m.id);
+    const found = await repo.getProductBySlug("camiseta-teste");
+    expect(found?.variants.map((v) => v.id)).not.toContain(m.id);
+  });
+
+  it("saveVariants ignora id de variação que pertence a outro produto", async () => {
+    const repo = createMockStoreRepository();
+    const a = await repo.createProduct(newProduct({ slug: "a" }));
+    const b = await repo.createProduct(newProduct({ slug: "b" }));
+    const [doA] = await repo.saveVariants(a.id, [newVariant({ size: "P" })]);
+
+    const saved = await repo.saveVariants(b.id, [
+      { ...newVariant({ size: "P" }), id: doA.id },
+    ]);
+
+    expect(saved[0].id).not.toBe(doA.id);
+    expect(saved[0].productId).toBe(b.id);
+    const foundA = await repo.getProductBySlug("a");
+    expect(foundA?.variants.map((v) => v.id)).toEqual([doA.id]);
+  });
+
   it("saveImages substitui o conjunto anterior", async () => {
     const repo = createMockStoreRepository();
     const product = await repo.createProduct(newProduct());

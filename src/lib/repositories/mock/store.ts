@@ -85,10 +85,13 @@ export function createMockStoreRepository(): StoreRepository {
     },
 
     async saveVariants(productId, input) {
+      const ownIds = new Set(
+        variants.filter((v) => v.productId === productId).map((v) => v.id)
+      );
       variants = variants.filter((v) => v.productId !== productId);
       const saved = input.map<StoreVariant>((v) => ({
         ...v,
-        id: crypto.randomUUID(),
+        id: v.id && ownIds.has(v.id) ? v.id : crypto.randomUUID(),
         productId,
       }));
       variants = [...variants, ...saved];

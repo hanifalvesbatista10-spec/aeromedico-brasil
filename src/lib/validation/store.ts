@@ -83,6 +83,7 @@ export type StoreProductFormInput = z.input<typeof storeProductSchema>;
 
 export const storeVariantSchema = z
   .object({
+    id: z.string().trim().min(1).optional(),
     sku: optionalText,
     size: optionalText,
     colorName: optionalText,
@@ -112,7 +113,15 @@ export const storeVariantsSchema = z
   .superRefine((variants, ctx) => {
     const combos = new Set<string>();
     const skus = new Set<string>();
+    const ids = new Set<string>();
     for (const variant of variants) {
+      if (variant.id !== undefined) {
+        if (ids.has(variant.id)) {
+          ctx.addIssue({ code: "custom", message: "Há variações repetidas." });
+          return;
+        }
+        ids.add(variant.id);
+      }
       const combo = `${variant.size ?? ""}|${variant.colorName ?? ""}`;
       if (combos.has(combo)) {
         ctx.addIssue({

@@ -88,10 +88,15 @@ export interface StoreRepository {
   createProduct(input: Omit<StoreProduct, "id">): Promise<StoreProduct>;
   updateProduct(id: string, patch: Partial<StoreProduct>): Promise<StoreProduct | null>;
   removeProduct(id: string): Promise<void>;
-  /** Substitui o conjunto de variações e atualiza `hasVariants` do produto. */
+  /**
+   * Sincroniza o conjunto de variações e atualiza `hasVariants` do produto.
+   * Com `id` de uma variação do mesmo produto, atualiza e mantém o id (pedidos e
+   * carrinho dependem dele); sem `id` (ou com id de outro produto), cria; quem
+   * não está na lista é apagado.
+   */
   saveVariants(
     productId: string,
-    variants: Omit<StoreVariant, "id" | "productId">[]
+    variants: (Omit<StoreVariant, "id" | "productId"> & { id?: string })[]
   ): Promise<StoreVariant[]>;
   /** Substitui o conjunto de fotos do produto. */
   saveImages(

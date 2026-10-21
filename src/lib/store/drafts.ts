@@ -65,6 +65,8 @@ export function productFormToInput(form: ProductForm): StoreProductFormInput {
 export interface VariantDraft {
   /** Chave só para o React; não vai para o banco. */
   key: string;
+  /** Id da variação já salva; vazio em variação nova. Mantém o id estável ao salvar. */
+  id?: string;
   sku: string;
   size: string;
   colorName: string;
@@ -92,6 +94,7 @@ export function newVariantDraft(): VariantDraft {
 export function variantToDraft(variant: StoreVariant): VariantDraft {
   return {
     key: variant.id,
+    id: variant.id,
     sku: variant.sku ?? "",
     size: variant.size ?? "",
     colorName: variant.colorName ?? "",

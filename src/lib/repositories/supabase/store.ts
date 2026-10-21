@@ -161,29 +161,70 @@ export function createSupabaseStoreRepository(): StoreRepository {
       if (error) throw new Error(`Falha ao excluir produto: ${error.message}`);
     },
 
-    // Sem transação (não usamos função SQL nem service_role): apaga o conjunto
-    // antigo e insere o novo. As Server Actions validam duplicidade antes de
-    // chamar, mas uma falha de rede entre os dois passos deixa o produto sem
-    // variações até o dono salvar de novo.
+    // Sem transação (não usamos função SQL nem service_role). Quem já existe é
+    // atualizado pelo id, então o id de uma variação não muda ao salvar o
+    // produto (carrinho e pedidos vão apontar para ele). Ordem: apaga quem saiu,
+    // atualiza quem ficou, insere quem é novo; assim o índice único de
+    // tamanho+cor só enxerga o estado final. Trocar tamanho/cor entre duas
+    // variações existentes na mesma gravação pode esbarrar nesse índice; o dono
+    // vê a mensagem e faz a troca em dois salvamentos.
     async saveVariants(productId, input) {
       const supabase = await createServerSupabaseClient();
-      const { error: deleteError } = await supabase
+
+      const { data: existing, error: listError } = await supabase
         .from("store_variants")
-        .delete()
+        .select("id")
         .eq("product_id", productId);
-      if (deleteError) {
-        throw new Error(`Falha ao atualizar variações: ${deleteError.message}`);
+      if (listError) {
+        throw new Error(`Falha ao atualizar variações: ${listError.message}`);
+      }
+      const ownIds = new Set((existing as { id: string }[]).map((row) => row.id));
+
+      const keepIds = new Set<string>();
+      const updates: { id: string; variant: (typeof input)[number] }[] = [];
+      const inserts: (typeof input)[number][] = [];
+      for (const variant of input) {
+        if (variant.id && ownIds.has(variant.id) && !keepIds.has(variant.id)) {
+          keepIds.add(variant.id);
+          updates.push({ id: variant.id, variant });
+        } else {
+          inserts.push(variant);
+        }
       }
 
-      let saved: StoreVariantRow[] = [];
-      if (input.length > 0) {
-        const { data, error } = await supabase
+      const removedIds = [...ownIds].filter((id) => !keepIds.has(id));
+      if (removedIds.length > 0) {
+        const { error: deleteError } = await supabase
           .from("store_variants")
-          .insert(input.map((variant) => storeVariantToRow(productId, variant)))
-          .select("*");
-        if (error) throw mapStoreError(error, "variant", "Falha ao salvar variações");
-        saved = data as StoreVariantRow[];
+          .delete()
+          .eq("product_id", productId)
+          .in("id", removedIds);
+        if (deleteError) {
+          throw new Error(`Falha ao atualizar variações: ${deleteError.message}`);
+        }
       }
+
+      for (const { id, variant } of updates) {
+        const { error } = await supabase
+          .from("store_variants")
+          .update(storeVariantToRow(productId, variant))
+          .eq("id", id)
+          .eq("product_id", productId);
+        if (error) throw mapStoreError(error, "variant", "Falha ao salvar variações");
+      }
+
+      if (inserts.length > 0) {
+        const { error } = await supabase
+          .from("store_variants")
+          .insert(inserts.map((variant) => storeVariantToRow(productId, variant)));
+        if (error) throw mapStoreError(error, "variant", "Falha ao salvar variações");
+      }
+
+      const { data: saved, error: readError } = await supabase
+        .from("store_variants")
+        .select("*")
+        .eq("product_id", productId);
+      if (readError) throw new Error(`Falha ao salvar variações: ${readError.message}`);
 
       const { error: flagError } = await supabase
         .from("store_products")
@@ -193,7 +234,7 @@ export function createSupabaseStoreRepository(): StoreRepository {
         throw new Error(`Falha ao atualizar o produto: ${flagError.message}`);
       }
 
-      return saved
+      return (saved as StoreVariantRow[])
         .map(storeVariantToDomain)
         .sort((a, b) => a.sortOrder - b.sortOrder);
     },
