@@ -53,6 +53,7 @@ ordem:
 3. `20260905120200_cms_storage.sql`
 4. `20260905120300_cms_seed.sql`
 5. `20261018120000_store_catalog.sql` (loja: categorias, produtos, variações e fotos; o catálogo nasce vazio)
+6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Cupons indisponíveis no momento.")
 
 **Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
 mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
@@ -165,8 +166,13 @@ preenchidas com informação real antes de publicar.
 - **Atenção do dono:** o texto que chega no WhatsApp é editável pelo cliente antes de
   enviar. Confira sempre preço e estoque no painel antes de cobrar. Quando existirem
   pedidos gravados no servidor, a mensagem passa a levar só um código de referência.
-- Ainda não existem: cupom, frete (Melhor Envio), pagamento e área do cliente
-  (próximas fases, ver `docs/superpowers/specs/`).
+- **Cupons** (`/admin/cupons`): percentual ou valor fixo, validade, pedido mínimo e
+  limite de usos; um cupom por pedido. O visitante não consegue listar cupons: o
+  código é validado por uma função SQL que devolve um único cupom ativo. O
+  contador de usos só sobe quando existirem pedidos gravados; até lá, o dono pode
+  ajustar "Usos já feitos" à mão.
+- Ainda não existem: frete (Melhor Envio), pagamento e área do cliente (próximas
+  fases, ver `docs/superpowers/specs/`).
 - Limites do carrinho: 99 unidades por item e 50 itens diferentes. Cada ação do
   carrinho consulta o catálogo inteiro; com catálogo grande, trocar por consulta
   filtrada e adicionar limite de requisições (WAF) antes de crescer.
@@ -197,7 +203,7 @@ preenchidas com informação real antes de publicar.
 
 ## Próximos passos sugeridos
 
-1. Confirmar o projeto Supabase do CMS, aplicar as 5 migrations e autorizar o
+1. Confirmar o projeto Supabase do CMS, aplicar as 6 migrations e autorizar o
    administrador (seção "Banco de dados e primeiro administrador").
 2. Testar o painel de ponta a ponta contra o banco real (login, CRUD, uploads).
 3. Substituir o conteúdo demonstrativo por formações, conteúdos e depoimentos
