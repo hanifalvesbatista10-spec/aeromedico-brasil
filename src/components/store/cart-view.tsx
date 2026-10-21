@@ -66,6 +66,14 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
   // Texto digitado no campo e código já enviado ao servidor (cupom aplicado ou tentado).
   const [couponInput, setCouponInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  // Cada clique em "Aplicar" conta, mesmo com o mesmo código (tentar de novo manda de novo).
+  const [couponAttempt, setCouponAttempt] = useState(0);
+  const [couponPending, setCouponPending] = useState(false);
+  const [couponLocalError, setCouponLocalError] = useState<string | null>(null);
+  // O que fazer quando a resposta do servidor chegar: anunciar e levar o foco ao cupom aplicado.
+  const justApplied = useRef(false);
+  const couponBoxRef = useRef<HTMLDivElement>(null);
+  const removeCouponRef = useRef<HTMLButtonElement>(null);
   // Entrega escolhida: só vale enquanto o carrinho for o mesmo da cotação.
   const [shippingChoice, setShippingChoice] = useState<ShippingSelection | null>(null);
   const latestRequest = useRef(0);
@@ -86,9 +94,23 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     pricing
       .then((result) => {
         if (request !== latestRequest.current) return;
+        setCouponPending(false);
         if (!result.ok) {
+          justApplied.current = false;
           setState({ status: "error", message: result.error });
           return;
+        }
+        if (justApplied.current) {
+          if (result.coupon) {
+            const applied = evaluateCoupon(result.coupon, result.cart.subtotalCents, new Date());
+            if (applied.ok) {
+              setAnnouncement(
+                `Cupom ${result.coupon.code} aplicado. Desconto de ${formatBRL(applied.discountCents)}.`
+              );
+            }
+          } else {
+            justApplied.current = false;
+          }
         }
         const reduced = result.cart.lines.filter((line) => line.reduced);
         if (reduced.length > 0) {
@@ -115,6 +137,8 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
       })
       .catch(() => {
         if (request !== latestRequest.current) return;
+        setCouponPending(false);
+        justApplied.current = false;
         setState({
           status: "error",
           message: "Não foi possível carregar o carrinho agora. Tente de novo.",
@@ -122,7 +146,16 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
       });
     // `cart.lines` entra por `cartSignature`: o array muda de referência sem mudar de conteúdo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartSignature, attempt, appliedCode, setQuantity]);
+  }, [cartSignature, attempt, appliedCode, couponAttempt, setQuantity]);
+
+  // Cupom aceito: o formulário saiu da tela, então o foco vai para "Remover cupom".
+  const acceptedCode = state.status === "ready" ? (state.coupon?.code ?? null) : null;
+  useEffect(() => {
+    if (acceptedCode && justApplied.current) {
+      removeCouponRef.current?.focus();
+      justApplied.current = false;
+    }
+  }, [acceptedCode]);
 
   function dropNote(key: string) {
     setStockNotes(({ [key]: _dropped, ...rest }) => {
@@ -146,13 +179,40 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
   }
 
   function applyCoupon() {
+    if (couponPending) return;
     const code = couponInput.trim();
-    if (code) setAppliedCode(code);
+    if (!code) {
+      setCouponLocalError("Digite o código do cupom.");
+      return;
+    }
+    setCouponLocalError(null);
+    setCouponPending(true);
+    justApplied.current = true;
+    // Limpa o erro anterior: o alerta remonta e é anunciado de novo se repetir.
+    setState((current) => (current.status === "ready" ? { ...current, couponError: null } : current));
+    setAppliedCode(code);
+    setCouponAttempt((n) => n + 1);
+  }
+
+  function changeCouponInput(value: string) {
+    setCouponInput(value);
+    setCouponLocalError(null);
+    // Campo apagado = desistiu do código recusado: não deixa o código "grudado".
+    if (value.trim() === "" && appliedCode !== null) setAppliedCode(null);
   }
 
   function removeCoupon() {
+    // O botão clicado sai da tela: o foco fica no bloco do cupom.
+    couponBoxRef.current?.focus();
+    justApplied.current = false;
     setAppliedCode(null);
     setCouponInput("");
+    setCouponLocalError(null);
+    // O desconto sai na hora, sem esperar a resposta do servidor.
+    setState((current) =>
+      current.status === "ready" ? { ...current, coupon: null, couponError: null } : current
+    );
+    setAnnouncement("Cupom removido.");
   }
 
   function renderContent(): ReactNode {
@@ -410,12 +470,25 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
           </div>
 
           {lines.length > 0 && (
-            <div className="mt-4 border-t border-border pt-4">
+            <div
+              ref={couponBoxRef}
+              tabIndex={-1}
+              className="mt-4 border-t border-border pt-4 outline-none"
+            >
               {coupon ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-navy-950">{`Cupom ${coupon.code} aplicado`}</p>
+                  <p className="text-sm font-medium text-navy-950">
+                    {couponMessage
+                      ? `Cupom ${coupon.code} não está valendo agora`
+                      : `Cupom ${coupon.code} aplicado`}
+                  </p>
                   {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
-                  <button type="button" onClick={removeCoupon} className={textAction}>
+                  <button
+                    ref={removeCouponRef}
+                    type="button"
+                    onClick={removeCoupon}
+                    className={textAction}
+                  >
                     Remover cupom
                   </button>
                 </div>
@@ -432,18 +505,25 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
                     <Input
                       id="cart-coupon"
                       value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value)}
+                      onChange={(e) => changeCouponInput(e.target.value)}
                       autoCapitalize="characters"
                       autoComplete="off"
-                      className="h-11"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className={cn("h-11", focusRing)}
                     />
-                    <Button type="submit" variant="outline" className="h-11" disabled={!couponInput.trim()}>
-                      Aplicar
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      aria-disabled={couponPending}
+                      className={cn("h-11 aria-disabled:opacity-60", focusRing)}
+                    >
+                      {couponPending ? "Aplicando…" : "Aplicar"}
                     </Button>
                   </div>
-                  {state.couponError && (
+                  {(couponLocalError ?? state.couponError) && (
                     <p role="alert" className="text-sm text-red-800">
-                      {state.couponError}
+                      {couponLocalError ?? state.couponError}
                     </p>
                   )}
                 </form>
@@ -452,7 +532,12 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
           )}
 
           {lines.length > 0 && (
-            <CartShipping lines={cart.lines} signature={cartSignature} onSelect={setShippingChoice} />
+            <CartShipping
+              lines={cart.lines}
+              signature={cartSignature}
+              onSelect={setShippingChoice}
+              onAnnounce={setAnnouncement}
+            />
           )}
 
           <p className="mt-3 text-sm text-gray-600">
@@ -480,7 +565,7 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
                 )}
               >
                 {lines.length > 0
-                  ? "Finalização indisponível no momento"
+                  ? "Não foi possível abrir o WhatsApp agora"
                   : "Nenhum item disponível para finalizar"}
               </span>
             )}

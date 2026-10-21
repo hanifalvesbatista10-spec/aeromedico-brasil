@@ -204,7 +204,7 @@ describe("CartView", () => {
     render(<CartView whatsappUrl="https://wa.me/" />);
     await screen.findByText("Boné");
     expect(screen.queryByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeNull();
-    expect(screen.getByText("Finalização indisponível no momento")).toBeTruthy();
+    expect(screen.getByText("Não foi possível abrir o WhatsApp agora")).toBeTruthy();
   });
 
   it("falha do servidor mostra alerta e 'Tentar de novo' refaz a chamada", async () => {
@@ -346,7 +346,12 @@ describe("CartView com cupom", () => {
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByText("Camiseta Aeromédico");
     expect(screen.getByLabelText("Cupom de desconto")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Aplicar" }) as HTMLButtonElement).disabled).toBe(true);
+    const apply = screen.getByRole("button", { name: "Aplicar" }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+
+    fireEvent.click(apply);
+    expect((await screen.findByRole("alert")).textContent).toContain("Digite o código do cupom.");
+    expect(priceCartAction).toHaveBeenCalledTimes(1);
   });
 
   it("sem nenhum item válido no carrinho não há campo de cupom", async () => {
@@ -411,6 +416,8 @@ describe("CartView com cupom", () => {
     expect(screen.getByText(/Este cupom vale para pedidos a partir de/).textContent?.replace(/ /g, " ")).toContain(
       "R$ 90,00"
     );
+    expect(screen.getByText("Cupom VERAO10 não está valendo agora")).toBeTruthy();
+    expect(screen.queryByText("Cupom VERAO10 aplicado")).toBeNull();
   });
 
   it("mensagem do servidor sobre o código aparece em alerta, sem derrubar o carrinho", async () => {
@@ -473,22 +480,125 @@ async function renderWithShirts(quantity = 2, coupon = false) {
   await screen.findByText("Camiseta Aeromédico");
 }
 
-describe("CartView com frete", () => {
-  beforeEach(() => quoteShippingAction.mockReset());
+describe("CartView: cupom, ajustes da revisão", () => {
+  const announcer = () => screen.getByTestId("cart-announcer").textContent;
 
-  it("o botão só habilita com 8 dígitos e o campo põe o hífen", async () => {
+  it("tentar de novo o mesmo código recusado volta a consultar o servidor", async () => {
+    seed([shirt(1)]);
+    fakeServer({}, { couponError: "Cupom não encontrado." });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    await applyCode("naoexiste");
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    await waitFor(() =>
+      expect(priceCartAction.mock.calls.filter((call) => call[1] === "naoexiste")).toHaveLength(2)
+    );
+  });
+
+  it("apagar o campo depois de um código recusado tira o código e o alerta", async () => {
+    seed([shirt(1)]);
+    fakeServer({}, { couponError: "Cupom não encontrado." });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode("naoexiste");
+    await screen.findByRole("alert");
+
+    fireEvent.change(screen.getByLabelText("Cupom de desconto"), { target: { value: "" } });
+
+    await waitFor(() => expect(priceCartAction).toHaveBeenLastCalledWith([shirt(1)]));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  it("'Remover cupom' tira o desconto na hora, antes da resposta do servidor", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    priceCartAction.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Remover cupom" }));
+
+    expect(screen.queryByTestId("cart-discount")).toBeNull();
+    expect(screen.queryByText("Cupom VERAO10 aplicado")).toBeNull();
+    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
+    expect(decodeURIComponent(href)).not.toContain("Cupom VERAO10");
+  });
+
+  it("enquanto o cupom é verificado o botão diz 'Aplicando…' e não envia de novo", async () => {
+    seed([shirt(1)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    priceCartAction.mockImplementation(() => new Promise(() => {}));
+    await applyCode();
+    const button = await screen.findByRole("button", { name: "Aplicando…" });
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+
+    const calls = priceCartAction.mock.calls.length;
+    fireEvent.click(button);
+    expect(priceCartAction.mock.calls.length).toBe(calls);
+  });
+
+  it("aplicar e remover são anunciados, e o foco não se perde", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    expect(announcer()).toBe("Cupom VERAO10 aplicado. Desconto de R$ 9,98.".replace(" R$ ", " R$\u00a0"));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remover cupom" }))
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remover cupom" }));
+    expect(announcer()).toBe("Cupom removido.");
+    expect(screen.getByTestId("cart-view").contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("campos e botões novos têm contorno de foco próprio", async () => {
+    seed([shirt(1)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+    for (const element of [
+      screen.getByLabelText("Cupom de desconto"),
+      screen.getByRole("button", { name: "Aplicar" }),
+      screen.getByLabelText("CEP de entrega"),
+      screen.getByRole("button", { name: "Calcular frete" }),
+    ]) {
+      expect(element.className).toContain("focus-visible:outline-navy-700");
+    }
+  });
+});
+
+describe("CartView com frete", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+  });
+
+  it("CEP incompleto não chama o servidor e explica o que falta; com 8 dígitos o campo põe o hífen", async () => {
     await renderWithShirts();
     const button = screen.getByRole("button", { name: "Calcular frete" }) as HTMLButtonElement;
     const input = screen.getByLabelText("CEP de entrega") as HTMLInputElement;
-    expect(button.disabled).toBe(true);
+    expect(button.disabled).toBe(false);
 
     fireEvent.change(input, { target: { value: "0101" } });
-    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect((await screen.findByRole("alert")).textContent).toContain("Informe um CEP com 8 números.");
+    expect(quoteShippingAction).not.toHaveBeenCalled();
 
     quoteShippingAction.mockResolvedValue(quoteOk());
     fireEvent.change(input, { target: { value: "01018020" } });
     expect(input.value).toBe("01018-020");
-    expect(button.disabled).toBe(false);
 
     fireEvent.click(button);
     await waitFor(() => expect(quoteShippingAction).toHaveBeenCalledWith([shirt(2)], "01018-020"));
@@ -542,7 +652,7 @@ describe("CartView com frete", () => {
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
     expect(screen.queryByTestId("cart-shipping")).toBeNull();
     expect(screen.queryByTestId("cart-total")).toBeNull();
-    expect(screen.getByText("O carrinho mudou. Calcule o frete de novo.")).toBeTruthy();
+    expect(screen.getAllByText("O carrinho mudou. Calcule o frete de novo.").length).toBeGreaterThan(0);
   });
 
   it("cotação que volta depois de o carrinho mudar não vale", async () => {
@@ -558,7 +668,7 @@ describe("CartView com frete", () => {
 
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
     expect(screen.queryByTestId("cart-shipping")).toBeNull();
-    expect(screen.getByText("O carrinho mudou. Calcule o frete de novo.")).toBeTruthy();
+    expect(screen.getAllByText("O carrinho mudou. Calcule o frete de novo.").length).toBeGreaterThan(0);
   });
 
   it("frete não configurado: aviso em status, sem opções, e o frete continua combinado no WhatsApp", async () => {
@@ -600,5 +710,75 @@ describe("CartView com frete", () => {
     expect(text).toContain("Frete (Correios PAC, CEP 01018-020): R$ 23,45");
     expect(text).toContain("Total: R$ 123,25");
     expect(text).toContain("Pode me passar as formas de pagamento?");
+  });
+});
+
+
+describe("CartView: frete, ajustes da revisão", () => {
+  const announcer = () => screen.getByTestId("cart-announcer").textContent;
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+  });
+
+  it("enquanto calcula, o botão diz 'Calculando…' e um segundo clique não envia de novo", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockImplementation(() => new Promise(() => {}));
+    calculate();
+
+    const button = await screen.findByRole("button", { name: "Calculando…" });
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(button);
+    expect(quoteShippingAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("editar o CEP depois de cotar apaga as opções e o frete", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    await screen.findByRole("group", { name: "Opções de entrega" });
+
+    fireEvent.change(screen.getByLabelText("CEP de entrega"), { target: { value: "01018030" } });
+
+    expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
+    expect(screen.queryByTestId("cart-shipping")).toBeNull();
+    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
+    expect(decodeURIComponent(href)).not.toContain("Frete (");
+  });
+
+  it("cotar, escolher e carrinho mudado são anunciados", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    const group = await screen.findByRole("group", { name: "Opções de entrega" });
+    expect(announcer()?.replace(/\u00a0/g, " ")).toBe(
+      "Frete calculado: 2 opções. Entrega Correios PAC selecionada: R$ 23,45."
+    );
+
+    fireEvent.click(within(group).getAllByRole("radio")[1]);
+    expect(announcer()?.replace(/\u00a0/g, " ")).toBe("Entrega Correios SEDEX selecionada: R$ 41,20.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+    await waitFor(() => expect(announcer()).toBe("O carrinho mudou. Calcule o frete de novo."));
+  });
+
+  it("a escolha de frete não sobrevive à tela de erro: ao voltar, o resumo não traz frete sem opções", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    await screen.findByRole("group", { name: "Opções de entrega" });
+
+    // A próxima precificação falha: a tela de erro desmonta o bloco de frete.
+    priceCartAction.mockResolvedValueOnce({ ok: false, error: "Não foi possível carregar o carrinho agora. Tente de novo." });
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+    await screen.findByRole("alert");
+
+    // Volta ao mesmo conteúdo de antes (quantidade 2) e a precificação funciona de novo.
+    fakeServer();
+    seed([shirt(2)]);
+    fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
+    await screen.findByText("Camiseta Aeromédico");
+
+    expect(screen.queryByTestId("cart-shipping")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
   });
 });

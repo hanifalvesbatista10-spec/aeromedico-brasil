@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { quoteShippingAction } from "@/lib/actions/shipping";
 import type { CartLine } from "@/lib/cart/cart";
 import { formatBRL } from "@/lib/money";
-import { normalizeCep } from "@/lib/shipping/cep";
+import { cn } from "@/lib/utils";
+import { formatCep, normalizeCep } from "@/lib/shipping/cep";
 import type { ShippingOption } from "@/lib/shipping/types";
 
 /** Opção de entrega escolhida, válida só para o carrinho (`signature`) que a originou. */
@@ -28,6 +29,9 @@ interface Quote {
 
 type Notice = { kind: "alert" | "status"; text: string };
 
+const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-700";
+
 function maskCep(input: string): string {
   const digits = input.replace(/\D/g, "").slice(0, 8);
   return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
@@ -44,17 +48,20 @@ function deliveryText(days: number | null): string {
 
 /**
  * CEP, cotação e escolha da entrega. A cotação vale só para o conteúdo do
- * carrinho em que foi pedida: se `signature` muda, as opções somem e a escolha
- * deixa de valer (quem usa a seleção confere a assinatura).
+ * carrinho em que foi pedida e para o CEP em que foi pedida: mudar um dos dois
+ * apaga as opções e a escolha. Quem usa a seleção ainda confere a assinatura.
+ * Tudo que muda o frete é anunciado por `onAnnounce` (leitor de tela).
  */
 export function CartShipping({
   lines,
   signature,
   onSelect,
+  onAnnounce,
 }: {
   lines: CartLine[];
   signature: string;
   onSelect: (selection: ShippingSelection | null) => void;
+  onAnnounce: (text: string) => void;
 }) {
   const [cep, setCep] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,31 +69,56 @@ export function CartShipping({
   const [notice, setNotice] = useState<Notice | null>(null);
   const latestRequest = useRef(0);
 
-  const canQuote = normalizeCep(cep) !== null && !loading;
   const stale = quote !== null && quote.signature !== signature;
+
+  // Sair da tela (ex.: erro ao reprecificar) desfaz a escolha: sem as opções
+  // visíveis, o resumo não pode continuar cobrando um frete que ninguém vê.
+  useEffect(() => () => onSelect(null), [onSelect]);
+
+  useEffect(() => {
+    if (stale) onAnnounce("O carrinho mudou. Calcule o frete de novo.");
+  }, [stale, onAnnounce]);
 
   function select(current: Quote, id: string) {
     const option = current.options.find((item) => item.id === id);
-    if (!option) return;
+    if (!option) return null;
     onSelect({
       label: optionLabel(option),
       cep: current.cep,
       priceCents: option.priceCents,
       signature: current.signature,
     });
+    return option;
+  }
+
+  function handleCepChange(value: string) {
+    const masked = maskCep(value);
+    setCep(masked);
+    // Outro CEP: a cotação anterior não vale mais.
+    if (quote && masked !== formatCep(quote.cep)) {
+      setQuote(null);
+      onSelect(null);
+    }
+    setNotice(null);
   }
 
   async function handleQuote() {
+    if (loading) return;
+    if (normalizeCep(cep) === null) {
+      setNotice({ kind: "alert", text: "Informe um CEP com 8 números." });
+      return;
+    }
+
     const request = ++latestRequest.current;
     const requestedSignature = signature;
     setLoading(true);
     setNotice(null);
+    onSelect(null);
     try {
       const result = await quoteShippingAction(lines, cep);
       if (request !== latestRequest.current) return;
       if (!result.ok) {
         setQuote(null);
-        onSelect(null);
         setNotice({
           kind: result.code === "unconfigured" ? "status" : "alert",
           text: result.error,
@@ -100,11 +132,18 @@ export function CartShipping({
         selectedId: result.options[0].id,
       };
       setQuote(next);
-      select(next, next.selectedId);
+      const chosen = select(next, next.selectedId);
+      if (chosen) {
+        const count = result.options.length;
+        onAnnounce(
+          `Frete calculado: ${count} ${count === 1 ? "opção" : "opções"}. Entrega ${optionLabel(
+            chosen
+          )} selecionada: ${formatBRL(chosen.priceCents)}.`
+        );
+      }
     } catch {
       if (request !== latestRequest.current) return;
       setQuote(null);
-      onSelect(null);
       setNotice({
         kind: "alert",
         text: "Não foi possível calcular o frete agora. Tente de novo.",
@@ -118,7 +157,10 @@ export function CartShipping({
     if (!quote) return;
     const next = { ...quote, selectedId: id };
     setQuote(next);
-    select(next, id);
+    const chosen = select(next, id);
+    if (chosen) {
+      onAnnounce(`Entrega ${optionLabel(chosen)} selecionada: ${formatBRL(chosen.priceCents)}.`);
+    }
   }
 
   return (
@@ -126,7 +168,7 @@ export function CartShipping({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (canQuote) void handleQuote();
+          void handleQuote();
         }}
         className="space-y-2"
       >
@@ -135,14 +177,20 @@ export function CartShipping({
           <Input
             id="cart-cep"
             value={cep}
-            onChange={(e) => setCep(maskCep(e.target.value))}
+            onChange={(e) => handleCepChange(e.target.value)}
             inputMode="numeric"
             autoComplete="postal-code"
+            spellCheck={false}
             placeholder="00000-000"
-            className="h-11"
+            className={cn("h-11", focusRing)}
           />
-          <Button type="submit" variant="outline" className="h-11" disabled={!canQuote}>
-            Calcular frete
+          <Button
+            type="submit"
+            variant="outline"
+            aria-disabled={loading}
+            className={cn("h-11 aria-disabled:opacity-60", focusRing)}
+          >
+            {loading ? "Calculando…" : "Calcular frete"}
           </Button>
         </div>
       </form>
@@ -166,7 +214,7 @@ export function CartShipping({
           {quote.options.map((option) => (
             <label
               key={option.id}
-              className="flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-border p-2 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-950/5"
+              className="flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-border p-2 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-950/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy-700"
             >
               <input
                 type="radio"
