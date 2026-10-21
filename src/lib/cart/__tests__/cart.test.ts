@@ -100,6 +100,16 @@ describe("parseStoredCart", () => {
     expect(parseStoredCart(raw)).toEqual([line({ quantity: 2 })]);
   });
 
+  it("ids acima de 64 caracteres são descartados (o servidor os rejeitaria e travaria o carrinho inteiro)", () => {
+    const longo = "x".repeat(65);
+    const raw = JSON.stringify([
+      line({ productId: longo }),
+      line({ variantId: longo }),
+      line({ quantity: 2 }),
+    ]);
+    expect(parseStoredCart(raw)).toEqual([line({ quantity: 2 })]);
+  });
+
   it("ajusta quantidade ao teto e une chaves repetidas", () => {
     const raw = JSON.stringify([line({ quantity: 500 }), line({ quantity: 3 })]);
     expect(parseStoredCart(raw)).toEqual([line({ quantity: 99 })]);

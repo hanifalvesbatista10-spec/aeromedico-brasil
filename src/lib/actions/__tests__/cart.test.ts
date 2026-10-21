@@ -71,7 +71,10 @@ describe("priceCartAction", () => {
       Array.from({ length: 51 }, (_, i) => ({ productId: `p${i}`, variantId: null, quantity: 1 })),
     ],
   ])("entrada inválida (%s) vira erro como valor e não consulta o banco", async (_name, input) => {
-    expect(await priceCartAction(input)).toEqual({ ok: false, error: "Carrinho inválido." });
+    expect(await priceCartAction(input)).toEqual({
+      ok: false,
+      error: "Não foi possível ler os itens do carrinho.",
+    });
     expect(listProductDetails).not.toHaveBeenCalled();
   });
 

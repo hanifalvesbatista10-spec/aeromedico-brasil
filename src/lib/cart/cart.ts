@@ -10,6 +10,8 @@ export interface CartLine {
 
 export const MAX_LINE_QUANTITY = 99;
 export const MAX_CART_LINES = 50;
+/** Mesmo limite que o servidor aceita (src/lib/validation/cart.ts): id maior travaria o carrinho inteiro. */
+export const MAX_ID_LENGTH = 64;
 
 export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
   return `${line.productId}:${line.variantId ?? "-"}`;
@@ -51,14 +53,16 @@ export function cartItemCount(lines: CartLine[]): number {
   return lines.reduce((total, line) => total + line.quantity, 0);
 }
 
+function isStoredId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_ID_LENGTH;
+}
+
 function isStoredLine(value: unknown): value is CartLine {
   if (typeof value !== "object" || value === null) return false;
   const line = value as Record<string, unknown>;
   return (
-    typeof line.productId === "string" &&
-    line.productId.length > 0 &&
-    (line.variantId === null ||
-      (typeof line.variantId === "string" && line.variantId.length > 0)) &&
+    isStoredId(line.productId) &&
+    (line.variantId === null || isStoredId(line.variantId)) &&
     typeof line.quantity === "number" &&
     Number.isFinite(line.quantity) &&
     line.quantity >= 1

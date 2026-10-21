@@ -158,8 +158,18 @@ preenchidas com informação real antes de publicar.
 - O catálogo nasce vazio: o dono cadastra categorias, produtos (camisetas, bonés,
   patches e o que vier), tamanhos, cores, preço, peso e medidas em `/admin/loja`.
   Faltam as fotos reais de cada cor.
-- A compra ainda é pelo WhatsApp do cliente. Carrinho, cupom, frete (Melhor Envio),
-  pagamento e área do cliente são as próximas fases (ver `docs/superpowers/specs/`).
+- **Carrinho pronto** (`/carrinho`, ícone no cabeçalho, botão "Adicionar ao carrinho"
+  em cada produto). O navegador guarda só ids e quantidades; nome, foto, preço e
+  estoque vêm do servidor. A finalização é pelo WhatsApp do cliente, com o pedido
+  escrito na mensagem.
+- **Atenção do dono:** o texto que chega no WhatsApp é editável pelo cliente antes de
+  enviar. Confira sempre preço e estoque no painel antes de cobrar. Quando existirem
+  pedidos gravados no servidor, a mensagem passa a levar só um código de referência.
+- Ainda não existem: cupom, frete (Melhor Envio), pagamento e área do cliente
+  (próximas fases, ver `docs/superpowers/specs/`).
+- Limites do carrinho: 99 unidades por item e 50 itens diferentes. Cada ação do
+  carrinho consulta o catálogo inteiro; com catálogo grande, trocar por consulta
+  filtrada e adicionar limite de requisições (WAF) antes de crescer.
 - As variações mantêm o `id` ao salvar o produto (atualização por `id`), base para
   carrinho e pedidos. Trocar tamanho/cor entre duas variações na mesma gravação pode
   esbarrar no índice único; nesse caso a mensagem aparece e a troca vai em dois

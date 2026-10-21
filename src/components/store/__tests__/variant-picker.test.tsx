@@ -146,6 +146,41 @@ describe("VariantPicker", () => {
       );
     });
 
+    it("a cada clique o aviso diz quantos deste item há no carrinho", () => {
+      renderShirt();
+      click("P");
+      click(/Preta/);
+      fireEvent.click(addButton()!);
+      expect(screen.getByRole("status").textContent).toContain("Você tem 1 deste item.");
+      fireEvent.click(addButton()!);
+      expect(screen.getByRole("status").textContent).toContain("Você tem 2 deste item.");
+    });
+
+    it("no máximo de 99 unidades não adiciona e avisa em vez de confirmar", () => {
+      window.localStorage.setItem(CART_KEY, JSON.stringify([{ productId: "p1", variantId: "pp", quantity: 99 }]));
+      renderShirt();
+      click("P");
+      click(/Preta/);
+      fireEvent.click(addButton()!);
+      expect(stored()).toEqual([{ productId: "p1", variantId: "pp", quantity: 99 }]);
+      const text = screen.getByRole("status").textContent ?? "";
+      expect(text).toContain("máximo");
+      expect(text).not.toContain("Adicionado");
+    });
+
+    it("carrinho com 50 itens diferentes não aceita um novo e avisa", () => {
+      const cheio = Array.from({ length: 50 }, (_, i) => ({ productId: `outro${i}`, variantId: null, quantity: 1 }));
+      window.localStorage.setItem(CART_KEY, JSON.stringify(cheio));
+      renderShirt();
+      click("P");
+      click(/Preta/);
+      fireEvent.click(addButton()!);
+      expect(stored()).toHaveLength(50);
+      const text = screen.getByRole("status").textContent ?? "";
+      expect(text).toContain("cheio");
+      expect(text).not.toContain("Adicionado");
+    });
+
     it("sem escolha completa o botão não existe", () => {
       renderShirt();
       click("P");

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
-import { lineKey } from "@/lib/cart/cart";
+import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineKey } from "@/lib/cart/cart";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/money";
 import { buildWhatsappLink } from "@/lib/utils/whatsapp";
@@ -62,8 +62,8 @@ export function VariantPicker({
     options.colors.length === 1 ? options.colors[0].name : null
   );
   const [photoIndex, setPhotoIndex] = useState(0);
-  // Chave da combinação que acabou de ir para o carrinho (some ao trocar a escolha).
-  const [justAdded, setJustAdded] = useState<string | null>(null);
+  // Resposta do último clique em "Adicionar" (some ao trocar a escolha).
+  const [feedback, setFeedback] = useState<{ key: string; text: string } | null>(null);
   const cart = useCart();
 
   const selection = resolveSelection(product, variants, size, colorName);
@@ -86,11 +86,29 @@ export function VariantPicker({
     variantId: selection.variant?.id ?? null,
     quantity: 1,
   };
-  const addedHere = justAdded === lineKey(cartLine);
+  const feedbackHere = feedback?.key === lineKey(cartLine) ? feedback.text : null;
 
+  // O aviso diz o que aconteceu de verdade: o clique pode não adicionar nada
+  // (99 unidades da linha ou 50 itens diferentes) e a quantidade muda a cada clique.
   function addToCart() {
+    const key = lineKey(cartLine);
+    const existing = cart.lines.find((line) => lineKey(line) === key);
+    if (existing && existing.quantity >= MAX_LINE_QUANTITY) {
+      setFeedback({ key, text: "Você já tem o máximo de unidades deste item no carrinho." });
+      return;
+    }
+    if (!existing && cart.lines.length >= MAX_CART_LINES) {
+      setFeedback({
+        key,
+        text: `O carrinho está cheio (${MAX_CART_LINES} itens diferentes). Finalize ou remova algum item.`,
+      });
+      return;
+    }
     cart.add(cartLine);
-    setJustAdded(lineKey(cartLine));
+    setFeedback({
+      key,
+      text: `Adicionado ao carrinho. Você tem ${(existing?.quantity ?? 0) + 1} deste item.`,
+    });
   }
 
   // Nunca prender o cliente: escolher uma opção que não combina com a outra
@@ -253,7 +271,7 @@ export function VariantPicker({
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {selection.status === "ready" ? (
             <>
-              <Button size="lg" onClick={addToCart} className="w-full sm:w-auto">
+              <Button size="lg" onClick={addToCart} className="h-11 w-full sm:w-auto">
                 Adicionar ao carrinho
               </Button>
               {whatsappHref && (
@@ -263,7 +281,7 @@ export function VariantPicker({
                   rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ size: "lg", variant: "outline" }),
-                    "w-full sm:w-auto"
+                    "h-11 w-full sm:w-auto"
                   )}
                 >
                   Comprar pelo WhatsApp
@@ -288,9 +306,9 @@ export function VariantPicker({
           )}
         </div>
         <p role="status" className="mt-3 min-h-6 text-sm text-gray-600">
-          {addedHere && (
+          {feedbackHere && (
             <>
-              Adicionado ao carrinho.{" "}
+              {feedbackHere}{" "}
               <Link
                 href="/carrinho"
                 className="font-medium text-navy-700 underline underline-offset-2"

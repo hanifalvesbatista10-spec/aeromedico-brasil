@@ -81,11 +81,11 @@ export function priceCart(
           : (publishedVariants(detail.variants).find((v) => v.id === line.variantId) ??
             null);
       if (!variant) {
-        unavailable.push({ ...ref(key, line), reason: "removed", name: null });
+        unavailable.push({ ...ref(key, line), reason: "removed", name: detail.product.name });
         continue;
       }
     } else if (line.variantId !== null) {
-      unavailable.push({ ...ref(key, line), reason: "removed", name: null });
+      unavailable.push({ ...ref(key, line), reason: "removed", name: detail.product.name });
       continue;
     }
 

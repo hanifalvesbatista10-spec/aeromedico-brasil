@@ -44,7 +44,7 @@ describe("buildCartWhatsappMessage", () => {
         "- 2x Camiseta Aeromédico (M, Preta): R$ 99,80",
         "- 1x Boné: R$ 40,00",
         "Subtotal: R$ 139,80",
-        "Pode me passar o valor do frete e a forma de pagamento?",
+        "Pode me passar o valor do frete e as formas de pagamento?",
       ].join("\n")
     );
   });
@@ -71,7 +71,7 @@ describe("buildCartWhatsappMessage", () => {
     expect(encodeURIComponent(message).length).toBeLessThanOrEqual(1800);
     expect(message.startsWith("Olá! Quero finalizar este pedido:")).toBe(true);
     expect(message).toContain("Subtotal: R$ 4.990,00");
-    expect(message.endsWith("Pode me passar o valor do frete e a forma de pagamento?")).toBe(
+    expect(message.endsWith("Pode me passar o valor do frete e as formas de pagamento?")).toBe(
       true
     );
 

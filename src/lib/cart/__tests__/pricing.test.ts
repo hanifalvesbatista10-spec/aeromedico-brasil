@@ -169,6 +169,13 @@ describe("priceCart", () => {
     expect(cart.itemCount).toBe(1);
   });
 
+  it("variação despublicada de produto visível ainda mostra o nome do produto", () => {
+    const cart = priceCart([line("camiseta", "gg-rascunho")], details, categories);
+    expect(cart.unavailable).toEqual([
+      expect.objectContaining({ reason: "removed", name: "Camiseta Aeromédico" }),
+    ]);
+  });
+
   it("estoque zero é esgotado e fica fora do subtotal", () => {
     const cart = priceCart([line("camiseta", "m-preta", 2)], details, categories);
     expect(cart.unavailable).toEqual([

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { MAX_CART_LINES, MAX_LINE_QUANTITY } from "@/lib/cart/cart";
+import { MAX_CART_LINES, MAX_ID_LENGTH, MAX_LINE_QUANTITY } from "@/lib/cart/cart";
 
-const id = z.string().min(1).max(64);
+const id = z.string().min(1).max(MAX_ID_LENGTH);
 
 /** Entrada da Server Action do carrinho: só ids e quantidade, nunca preço. */
 export const cartLinesSchema = z

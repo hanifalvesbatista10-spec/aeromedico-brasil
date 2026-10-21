@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import type { PricedCart, PricedLine, UnavailableLine } from "@/lib/cart/pricing";
 
 const priceCartAction = vi.fn();
@@ -16,6 +17,7 @@ type StoredLine = { productId: string; variantId: string | null; quantity: numbe
 const stored = (): StoredLine[] => JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
 const seed = (lines: StoredLine[]) => window.localStorage.setItem(KEY, JSON.stringify(lines));
 const shirt = (quantity = 1): StoredLine => ({ productId: "camiseta", variantId: "m-preta", quantity });
+const shirtG = (quantity = 1): StoredLine => ({ productId: "camiseta", variantId: "g-branca", quantity });
 const cap = (quantity = 1): StoredLine => ({ productId: "bone", variantId: null, quantity });
 
 function priced(over: Partial<PricedLine> = {}): PricedLine {
@@ -55,7 +57,11 @@ function fakeServer(maxByKey: Record<string, number> = {}) {
       const quantity = max === null ? l.quantity : Math.min(l.quantity, max);
       const base = l.productId === "bone"
         ? priced({ key, productId: "bone", variantId: null, slug: "bone", name: "Boné", size: null, colorName: null, unitPriceCents: 2000 })
-        : priced({ key });
+        : priced({
+            key,
+            variantId: l.variantId,
+            ...(l.variantId === "g-branca" ? { size: "G", colorName: "Branca" } : {}),
+          });
       return { ...base, quantity, maxQuantity: max, reduced: quantity < l.quantity, lineTotalCents: base.unitPriceCents * quantity };
     });
     return { ok: true, cart: cartOf(out) };
@@ -98,7 +104,7 @@ describe("CartView", () => {
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByText("Camiseta Aeromédico");
 
-    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
 
     expect(stored()[0].quantity).toBe(2);
     await waitFor(() => expect(priceCartAction).toHaveBeenLastCalledWith([shirt(2)]));
@@ -111,16 +117,16 @@ describe("CartView", () => {
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByText("Camiseta Aeromédico");
 
-    const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico" }) as HTMLButtonElement;
-    expect(plus.disabled).toBe(true);
+    const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
+    expect(plus.getAttribute("aria-disabled")).toBe("true");
 
     seed([shirt(1)]);
     cleanup();
     fakeServer();
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByText("Camiseta Aeromédico");
-    const minus = screen.getByRole("button", { name: "Diminuir quantidade de Camiseta Aeromédico" }) as HTMLButtonElement;
-    expect(minus.disabled).toBe(true);
+    const minus = screen.getByRole("button", { name: "Diminuir quantidade de Camiseta Aeromédico, M, Preta" });
+    expect(minus.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("Remover tira a linha e volta ao estado vazio", async () => {
@@ -129,7 +135,7 @@ describe("CartView", () => {
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByText("Camiseta Aeromédico");
 
-    fireEvent.click(screen.getByRole("button", { name: "Remover Camiseta Aeromédico" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" }));
 
     expect(stored()).toEqual([]);
     expect(screen.getByText("Seu carrinho está vazio.")).toBeTruthy();
@@ -159,7 +165,7 @@ describe("CartView", () => {
 
     const block = await screen.findByRole("region", { name: "Estes itens não estão mais disponíveis" });
     expect(within(block).getByText(/Camiseta Aeromédico/)).toBeTruthy();
-    expect(within(block).getByText(/Esgotado/)).toBeTruthy();
+    expect(within(block).getByText("Camiseta Aeromédico (esgotado)")).toBeTruthy();
     expect(money(screen.getByTestId("cart-subtotal").textContent)).toContain("R$ 20,00");
 
     fireEvent.click(within(block).getByRole("button", { name: /Remover/ }));
@@ -187,7 +193,7 @@ describe("CartView", () => {
     render(<CartView whatsappUrl="https://wa.me/" />);
     await screen.findByText("Boné");
     expect(screen.queryByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeNull();
-    expect(screen.getByText("Finalização em breve")).toBeTruthy();
+    expect(screen.getByText("Finalização indisponível no momento")).toBeTruthy();
   });
 
   it("falha do servidor mostra alerta e 'Tentar de novo' refaz a chamada", async () => {
@@ -201,6 +207,88 @@ describe("CartView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
     expect(await screen.findByText("Boné")).toBeTruthy();
     expect(priceCartAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("erro de leitura oferece 'Esvaziar carrinho' como saída", async () => {
+    seed([cap(1)]);
+    priceCartAction.mockResolvedValue({ ok: false, error: "Não foi possível ler os itens do carrinho." });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Esvaziar carrinho" }));
+
+    expect(stored()).toEqual([]);
+    expect(screen.getByText("Seu carrinho está vazio.")).toBeTruthy();
+  });
+
+  it("antes de hidratar, quem tem itens vê 'Carregando', nunca 'vazio'", () => {
+    seed([shirt(1)]);
+    const html = renderToString(<CartView whatsappUrl={WHATSAPP} />);
+    expect(html).toContain("Carregando seu carrinho");
+    expect(html).not.toContain("Seu carrinho está vazio.");
+  });
+
+  it("variações do mesmo produto têm botões com nomes diferentes", async () => {
+    seed([shirt(1), shirtG(1)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findAllByText("Camiseta Aeromédico");
+
+    expect(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, G, Branca" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, G, Branca" })).toBeTruthy();
+  });
+
+  it("remover anuncia o que saiu e mantém o foco dentro do carrinho", async () => {
+    seed([shirt(1), cap(1)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    fireEvent.click(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" }));
+
+    expect(screen.getByTestId("cart-announcer").textContent).toContain(
+      "Camiseta Aeromédico, M, Preta removido do carrinho."
+    );
+    expect(document.activeElement).toBe(screen.getByTestId("cart-view"));
+  });
+
+  it("'+' no limite não faz nada e continua focável (aria-disabled, sem disabled)", async () => {
+    seed([shirt(3)]);
+    fakeServer({ "camiseta:m-preta": 3 });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }) as HTMLButtonElement;
+    expect(plus.disabled).toBe(false);
+    fireEvent.click(plus);
+    expect(stored()[0].quantity).toBe(3);
+  });
+
+  it("'+' em 99 unidades sem limite de estoque também não faz nada", async () => {
+    seed([shirt(99)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
+    expect(plus.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(plus);
+    expect(stored()[0].quantity).toBe(99);
+  });
+
+  it("alvos de toque de 44px nos controles do carrinho", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByText("Camiseta Aeromédico");
+
+    const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
+    const remove = screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" });
+    const checkout = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ });
+    expect(plus.className).toContain("size-11");
+    expect(remove.className).toContain("min-h-11");
+    expect(checkout.className).toContain("h-11");
   });
 
   it("respostas fora de ordem: vale a mais recente", async () => {

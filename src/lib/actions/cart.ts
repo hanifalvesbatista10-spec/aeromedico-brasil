@@ -17,7 +17,7 @@ export type PriceCartResult =
  */
 export async function priceCartAction(input: unknown): Promise<PriceCartResult> {
   const parsed = cartLinesSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Carrinho inválido." };
+  if (!parsed.success) return { ok: false, error: "Não foi possível ler os itens do carrinho." };
 
   if (parsed.data.length === 0) {
     return {

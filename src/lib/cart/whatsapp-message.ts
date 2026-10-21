@@ -5,7 +5,7 @@ import type { PricedLine } from "./pricing";
 const MAX_ENCODED_LENGTH = 1800;
 
 const HEADER = "Olá! Quero finalizar este pedido:";
-const QUESTION = "Pode me passar o valor do frete e a forma de pagamento?";
+const QUESTION = "Pode me passar o valor do frete e as formas de pagamento?";
 
 // O Intl usa espaço sem quebra entre "R$" e o valor; no WhatsApp basta o comum.
 function money(cents: number): string {
