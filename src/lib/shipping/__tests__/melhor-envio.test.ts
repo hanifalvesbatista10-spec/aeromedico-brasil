@@ -178,12 +178,15 @@ describe("createMelhorEnvioProvider", () => {
     expect(init.signal).toBeDefined();
   });
 
-  it("422 (CEP recusado) vira invalid-cep", async () => {
+  it("422 (CEP recusado) vira invalid-cep e é registrado, porque 422 também vale para pedido mal formado", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await createMelhorEnvioProvider(
       config,
       fakeFetch({ status: 422, body: { message: "CEP inválido" } })
     ).quote(input);
     expect(result).toEqual({ ok: false, reason: "invalid-cep" });
+    expect(JSON.stringify(spy.mock.calls)).toContain("422");
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
   });
 
   it.each([

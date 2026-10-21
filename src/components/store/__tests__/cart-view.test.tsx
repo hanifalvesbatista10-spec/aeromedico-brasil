@@ -566,17 +566,17 @@ describe("CartView com frete", () => {
     quoteShippingAction.mockResolvedValue({
       ok: false,
       code: "unconfigured",
-      error: "O cálculo automático do frete ainda não está ativo. O frete é combinado no WhatsApp.",
+      error: "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp.",
     });
     calculate();
 
-    const note = await screen.findByText(/O cálculo automático do frete ainda não está ativo/);
+    const note = await screen.findByText(/O cálculo automático do frete não está disponível no momento/);
     expect(note.getAttribute("role")).toBe("status");
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
   });
 
   it.each([
-    ["invalid-cep", "CEP não encontrado. Confira os 8 números."],
+    ["invalid-cep", "CEP não encontrado. Confira se digitou certo."],
     ["unavailable", "Não foi possível calcular o frete agora. Tente de novo."],
   ])("erro %s aparece em alerta e o botão volta a habilitar", async (code, error) => {
     await renderWithShirts();

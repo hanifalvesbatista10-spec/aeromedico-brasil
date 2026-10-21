@@ -191,7 +191,7 @@ describe("priceCartAction com cupom", () => {
     expect(result).toMatchObject({
       ok: true,
       coupon: null,
-      couponError: "Cupons indisponíveis no momento.",
+      couponError: "Não foi possível verificar o cupom agora. Tente de novo.",
     });
     expect(result.ok && result.cart.subtotalCents).toBe(2000);
   });

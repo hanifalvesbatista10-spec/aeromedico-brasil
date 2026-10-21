@@ -122,7 +122,12 @@ export function createMelhorEnvioProvider(
 
       try {
         const response = await fetchImpl(url, { ...init, signal: controller.signal });
-        if (response.status === 422) return { ok: false, reason: "invalid-cep" };
+        if (response.status === 422) {
+          // 422 também vale para pedido mal formado (ex.: CEP de origem errado):
+          // sem este registro o dono não teria como descobrir a causa.
+          console.error("[frete] Melhor Envio recusou o pedido (422)");
+          return { ok: false, reason: "invalid-cep" };
+        }
         if (!response.ok) {
           console.error("[frete] Melhor Envio respondeu com status", response.status);
           return unavailable;

@@ -9,7 +9,7 @@
 --
 -- COMO APLICAR: rode no SQL Editor do Supabase do Aeromédico Brasil. Nenhum
 -- agente aplica este arquivo. Sem ela, o carrinho continua funcionando e o
--- campo de cupom responde "Cupons indisponíveis no momento."; o painel
+-- campo de cupom responde "Não foi possível verificar o cupom agora."; o painel
 -- /admin/cupons só funciona depois de aplicada.
 --
 -- SEGURANÇA: o visitante NUNCA lê a tabela (não há política para ele, então
@@ -91,6 +91,7 @@ as $$
          c.updated_at
   from public.store_coupons c
   where c.active = true
+    and char_length(p_code) <= 64
     and upper(c.code) = upper(btrim(p_code))
   limit 1;
 $$;

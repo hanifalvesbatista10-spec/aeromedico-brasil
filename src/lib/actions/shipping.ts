@@ -54,7 +54,7 @@ export async function quoteShippingAction(
   if (!provider) {
     return fail(
       "unconfigured",
-      "O cálculo automático do frete ainda não está ativo. O frete é combinado no WhatsApp."
+      "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp."
     );
   }
 
@@ -77,6 +77,6 @@ export async function quoteShippingAction(
   const result = await provider.quote({ destinationCep, items });
   if (result.ok) return { ok: true, options: result.options, cep: destinationCep };
   return result.reason === "invalid-cep"
-    ? fail("invalid-cep", "CEP não encontrado. Confira os 8 números.")
+    ? fail("invalid-cep", "CEP não encontrado. Confira se digitou certo.")
     : fail("unavailable", UNAVAILABLE);
 }

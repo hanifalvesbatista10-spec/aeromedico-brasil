@@ -58,7 +58,7 @@ describe("saveStoreCoupon", () => {
 
   it("entrada inválida volta como valor e nada é gravado", async () => {
     const result = await saveStoreCoupon({ ...input, value: "500" });
-    expect(result).toEqual({ ok: false, error: "Informe um percentual entre 1 e 100." });
+    expect(result).toEqual({ ok: false, error: "Informe um percentual inteiro entre 1 e 100." });
     expect(create).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });

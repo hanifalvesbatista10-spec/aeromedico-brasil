@@ -57,7 +57,7 @@ async function resolveCoupon(
     // Erros internos do Next (ex.: uso de cookies) precisam seguir adiante.
     unstable_rethrow(error);
     console.error("[carrinho] cupons indisponíveis", error);
-    return { coupon: null, couponError: "Cupons indisponíveis no momento." };
+    return { coupon: null, couponError: "Não foi possível verificar o cupom agora. Tente de novo." };
   }
 }
 

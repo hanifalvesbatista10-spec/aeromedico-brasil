@@ -43,9 +43,11 @@ describe("storeCouponSchema", () => {
     });
   });
 
-  it("código: de 3 a 32 letras, números, hífen ou sublinhado", () => {
-    const message = "Use de 3 a 32 letras, números, hífen ou sublinhado.";
+  it("código: de 6 a 32 caracteres (curto demais é fácil de adivinhar), sem acento", () => {
+    const message = "Use de 6 a 32 caracteres: letras sem acento, números, hífen ou sublinhado.";
     expect(messageOf({ code: "ab" })).toBe(message);
+    expect(messageOf({ code: "abcde" })).toBe(message);
+    expect(messageOf({ code: "abcdef" })).toBeNull();
     expect(messageOf({ code: "açaí10" })).toBe(message);
     expect(messageOf({ code: "a".repeat(33) })).toBe(message);
     expect(messageOf({ code: "BLACK-FRIDAY_25" })).toBeNull();
@@ -54,7 +56,7 @@ describe("storeCouponSchema", () => {
   });
 
   it("percentual: inteiro de 1 a 100", () => {
-    const message = "Informe um percentual entre 1 e 100.";
+    const message = "Informe um percentual inteiro entre 1 e 100.";
     for (const value of ["0", "101", "10,5", "abc", "", "-5"]) {
       expect(messageOf({ value })).toBe(message);
     }
@@ -67,10 +69,10 @@ describe("storeCouponSchema", () => {
     expect(ok.success && ok.data.value).toBe(2050);
     expect(parse({ kind: "fixed", value: "20" }).success && 2000).toBe(2000);
     expect(messageOf({ kind: "fixed", value: "0" })).toBe(
-      "Informe um valor válido, por exemplo 20,00."
+      "Informe um valor maior que zero, por exemplo 20,00."
     );
     expect(messageOf({ kind: "fixed", value: "abc" })).toBe(
-      "Informe um valor válido, por exemplo 20,00."
+      "Informe um valor maior que zero, por exemplo 20,00."
     );
   });
 
@@ -89,11 +91,12 @@ describe("storeCouponSchema", () => {
       "2026-12-01T03:00:00.000Z",
       "2026-12-31T23:59:00.000Z",
     ]);
-    expect(messageOf({ startsAt: "ontem" })).toBe("Data inválida.");
+    expect(messageOf({ startsAt: "ontem" })).toBe("Data de início inválida.");
+    expect(messageOf({ expiresAt: "amanhã" })).toBe("Data de fim inválida.");
   });
 
   it("a data final precisa ser depois da inicial", () => {
-    const message = "A data final deve ser depois da inicial.";
+    const message = "O fim da validade deve ser depois do início.";
     expect(
       messageOf({ startsAt: "2026-12-31T00:00:00.000Z", expiresAt: "2026-12-01T00:00:00.000Z" })
     ).toBe(message);
@@ -108,6 +111,16 @@ describe("storeCouponSchema", () => {
     expect(messageOf({ maxUses: "1,5" })).toBe(message);
     const ok = parse({ maxUses: "10" });
     expect(ok.success && ok.data.maxUses).toBe(10);
+  });
+
+  it("números gigantes são recusados em vez de estourar o banco ou virar 'sem limite'", () => {
+    const big = "O número é grande demais.";
+    expect(messageOf({ maxUses: "3000000000" })).toBe(big);
+    expect(messageOf({ maxUses: "9".repeat(400) })).toBe(big);
+    expect(messageOf({ usesCount: "3000000000" })).toBe(big);
+    expect(messageOf({ kind: "fixed", value: "30000000" })).toBe("O valor é grande demais.");
+    expect(messageOf({ minOrder: "30000000" })).toBe("O valor é grande demais.");
+    expect(messageOf({ maxUses: "2147483647" })).toBeNull();
   });
 
   it("usos já feitos: vazio é zero; inteiro de zero para cima", () => {

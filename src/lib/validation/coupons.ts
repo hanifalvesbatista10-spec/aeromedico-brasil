@@ -9,15 +9,21 @@ import type { StoreCoupon } from "@/lib/types";
 
 /** Maior código aceito (a regra do formulário e a do carrinho são a mesma). */
 export const MAX_COUPON_CODE_LENGTH = 32;
-const CODE_RE = /^[A-Z0-9_-]{3,32}$/;
+// Mínimo de 6: a consulta de cupom é pública e código curto é fácil de adivinhar
+// por tentativa. O banco aceita a partir de 3 (migration), o painel não.
+const CODE_RE = /^[A-Z0-9_-]{6,32}$/;
+/** Maior valor das colunas `integer` do Postgres. */
+const MAX_DB_INT = 2_147_483_647;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
 
-const CODE_MESSAGE = "Use de 3 a 32 letras, números, hífen ou sublinhado.";
-const PERCENT_MESSAGE = "Informe um percentual entre 1 e 100.";
-const FIXED_MESSAGE = "Informe um valor válido, por exemplo 20,00.";
+const CODE_MESSAGE =
+  "Use de 6 a 32 caracteres: letras sem acento, números, hífen ou sublinhado.";
+const PERCENT_MESSAGE = "Informe um percentual inteiro entre 1 e 100.";
+const FIXED_MESSAGE = "Informe um valor maior que zero, por exemplo 20,00.";
 const MIN_ORDER_MESSAGE = "Informe um valor válido, por exemplo 50,00.";
-const DATE_MESSAGE = "Data inválida.";
-const PERIOD_MESSAGE = "A data final deve ser depois da inicial.";
+const PERIOD_MESSAGE = "O fim da validade deve ser depois do início.";
+const BIG_VALUE_MESSAGE = "O valor é grande demais.";
+const BIG_NUMBER_MESSAGE = "O número é grande demais.";
 const MAX_USES_MESSAGE = "Informe um limite de usos inteiro, maior que zero.";
 const USES_COUNT_MESSAGE =
   "Informe quantos usos já foram feitos (número inteiro, zero ou mais).";
@@ -54,6 +60,7 @@ export const storeCouponSchema = z
     } else {
       const cents = parseBRLToCents(raw.value);
       if (cents === null || cents <= 0) return fail(FIXED_MESSAGE);
+      if (cents > MAX_DB_INT) return fail(BIG_VALUE_MESSAGE);
       value = cents;
     }
 
@@ -61,18 +68,19 @@ export const storeCouponSchema = z
     if (clean(raw.minOrder) !== "") {
       const cents = parseBRLToCents(clean(raw.minOrder));
       if (cents === null) return fail(MIN_ORDER_MESSAGE);
+      if (cents > MAX_DB_INT) return fail(BIG_VALUE_MESSAGE);
       minOrderCents = cents;
     }
 
-    const date = (input: string | null | undefined): string | null => {
+    const date = (input: string | null | undefined, label: string): string | null => {
       const value = clean(input);
       if (value === "") return null;
       const time = ISO_RE.test(value) ? Date.parse(value) : Number.NaN;
-      if (Number.isNaN(time)) return fail(DATE_MESSAGE);
+      if (Number.isNaN(time)) return fail(`Data de ${label} inválida.`);
       return new Date(time).toISOString();
     };
-    const startsAt = date(raw.startsAt);
-    const expiresAt = date(raw.expiresAt);
+    const startsAt = date(raw.startsAt, "início");
+    const expiresAt = date(raw.expiresAt, "fim");
     if (startsAt && expiresAt && Date.parse(expiresAt) <= Date.parse(startsAt)) {
       return fail(PERIOD_MESSAGE);
     }
@@ -80,6 +88,9 @@ export const storeCouponSchema = z
     let maxUses: number | null = null;
     if (clean(raw.maxUses) !== "") {
       const digits = clean(raw.maxUses);
+      if (/^\d+$/.test(digits) && (digits.length > 10 || Number(digits) > MAX_DB_INT)) {
+        return fail(BIG_NUMBER_MESSAGE);
+      }
       maxUses = /^\d+$/.test(digits) ? Number(digits) : 0;
       if (maxUses < 1) return fail(MAX_USES_MESSAGE);
     }
@@ -88,6 +99,7 @@ export const storeCouponSchema = z
     if (clean(raw.usesCount) !== "") {
       const digits = clean(raw.usesCount);
       if (!/^\d+$/.test(digits)) return fail(USES_COUNT_MESSAGE);
+      if (digits.length > 10 || Number(digits) > MAX_DB_INT) return fail(BIG_NUMBER_MESSAGE);
       usesCount = Number(digits);
     }
 

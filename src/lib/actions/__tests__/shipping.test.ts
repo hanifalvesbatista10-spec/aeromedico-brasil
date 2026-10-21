@@ -93,7 +93,7 @@ describe("quoteShippingAction", () => {
     expect(await quoteShippingAction(oneCap, "01018-020")).toEqual({
       ok: false,
       code: "unconfigured",
-      error: "O cálculo automático do frete ainda não está ativo. O frete é combinado no WhatsApp.",
+      error: "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp.",
     });
     expect(listProductDetails).not.toHaveBeenCalled();
   });
@@ -135,7 +135,7 @@ describe("quoteShippingAction", () => {
     expect(await quoteShippingAction(oneCap, "01018020")).toEqual({
       ok: false,
       code: "invalid-cep",
-      error: "CEP não encontrado. Confira os 8 números.",
+      error: "CEP não encontrado. Confira se digitou certo.",
     });
   });
 
