@@ -112,6 +112,14 @@ describe("parseMelhorEnvioResponse", () => {
     ]);
   });
 
+  it("serviço com erro é descartado mesmo quando traz um preço válido", () => {
+    const options = parseMelhorEnvioResponse([
+      { id: 5, name: "Não atende o CEP", price: "10.00", error: "Serviço indisponível para este CEP" },
+      { id: 6, name: "PAC", price: "20.00", company: { name: "Correios" } },
+    ]);
+    expect(options.map((o) => o.id)).toEqual(["6"]);
+  });
+
   it("aceita preço em número e prazo ausente", () => {
     expect(parseMelhorEnvioResponse([{ id: 9, name: "X", price: 12.9 }])).toEqual([
       { id: "9", name: "X", company: "", priceCents: 1290, deliveryDays: null },

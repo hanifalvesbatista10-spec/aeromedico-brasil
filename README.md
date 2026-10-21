@@ -36,6 +36,7 @@ Preencha `.env.local`:
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Sim | Chave publicável (publishable) do projeto. É a **única** chave usada: o app nunca usa `service_role`/secret key nem `ANON_KEY`. |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública do site (metadata, sitemap e JSON-LD). Local: `http://localhost:3000`. |
 | `NEXT_PUBLIC_GA_ID` / `NEXT_PUBLIC_META_PIXEL_ID` | Não | Os scripts de analytics só carregam se a variável existir. |
+| `MELHOR_ENVIO_TOKEN`, `STORE_ORIGIN_CEP`, `MELHOR_ENVIO_CONTACT_EMAIL`, `MELHOR_ENVIO_ENV` | Não | Frete automático do carrinho (Melhor Envio). **Só servidor** (sem `NEXT_PUBLIC`). Precisam estar as três primeiras para o frete calcular; `MELHOR_ENVIO_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). Passo a passo na seção da loja. |
 
 Sem as duas variáveis do Supabase, a leitura de conteúdo e o painel falham com
 um erro explícito (`src/lib/supabase/env.ts`); não há fallback silencioso para
@@ -171,8 +172,19 @@ preenchidas com informação real antes de publicar.
   código é validado por uma função SQL que devolve um único cupom ativo. O
   contador de usos só sobe quando existirem pedidos gravados; até lá, o dono pode
   ajustar "Usos já feitos" à mão.
-- Ainda não existem: frete (Melhor Envio), pagamento e área do cliente (próximas
-  fases, ver `docs/superpowers/specs/`).
+- **Frete automático (Melhor Envio)**: o cliente digita o CEP no carrinho e escolhe a
+  entrega; o cálculo usa peso e medidas de cada produto (cadastrados no painel) e o
+  valor declarado é o preço de venda. Para ligar:
+  1. Crie o token na conta do Melhor Envio (primeiro no **sandbox**, depois na conta real).
+  2. Na Vercel (Settings → Environment Variables), defina `MELHOR_ENVIO_TOKEN`,
+     `STORE_ORIGIN_CEP` (CEP de onde a loja despacha), `MELHOR_ENVIO_CONTACT_EMAIL` e,
+     na conta real, `MELHOR_ENVIO_ENV=production`. Refaça o deploy.
+  3. Sem as variáveis o carrinho continua funcionando e o frete segue combinado no
+     WhatsApp (não há tabela de frete inventada).
+  A ação de cotação é pública e consome a cota da conta do Melhor Envio: se houver
+  abuso, adicione limite de requisições (WAF/Firewall da Vercel).
+- Ainda não existem: pagamento, pedidos gravados, etiqueta/rastreio e área do cliente
+  (próximas fases, ver `docs/superpowers/specs/`).
 - Limites do carrinho: 99 unidades por item e 50 itens diferentes. Cada ação do
   carrinho consulta o catálogo inteiro; com catálogo grande, trocar por consulta
   filtrada e adicionar limite de requisições (WAF) antes de crescer.
