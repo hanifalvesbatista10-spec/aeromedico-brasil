@@ -9,6 +9,11 @@ vi.mock("@/lib/actions/cart", () => ({
   priceCartAction: (...args: unknown[]) => priceCartAction(...args),
 }));
 
+const quoteShippingAction = vi.fn();
+vi.mock("@/lib/actions/shipping", () => ({
+  quoteShippingAction: (...args: unknown[]) => quoteShippingAction(...args),
+}));
+
 import { CartView } from "../cart-view";
 
 const KEY = "aeromedico:cart:v1";
@@ -358,6 +363,7 @@ describe("CartView com cupom", () => {
     render(<CartView whatsappUrl={WHATSAPP} />);
     await screen.findByRole("region", { name: "Estes itens não estão mais disponíveis" });
     expect(screen.queryByLabelText("Cupom de desconto")).toBeNull();
+    expect(screen.queryByLabelText("CEP de entrega")).toBeNull();
   });
 
   it("aplicar envia o código, mostra o desconto e o total", async () => {
@@ -448,5 +454,151 @@ describe("CartView com cupom", () => {
     const text = decodeURIComponent(href.split("?text=")[1]);
     expect(text).toContain("Cupom VERAO10: -R$ 9,98");
     expect(text).toContain("Total: R$ 89,82");
+  });
+});
+
+const PAC = { id: "1", name: "PAC", company: "Correios", priceCents: 2345, deliveryDays: 6 };
+const SEDEX = { id: "2", name: "SEDEX", company: "Correios", priceCents: 4120, deliveryDays: 2 };
+const quoteOk = (options = [PAC, SEDEX]) => ({ ok: true, options, cep: "01018020" });
+
+function calculate(cep = "01018020") {
+  fireEvent.change(screen.getByLabelText("CEP de entrega"), { target: { value: cep } });
+  fireEvent.click(screen.getByRole("button", { name: "Calcular frete" }));
+}
+
+async function renderWithShirts(quantity = 2, coupon = false) {
+  seed([shirt(quantity)]);
+  fakeServer({}, coupon ? { coupon: VERAO10 } : {});
+  render(<CartView whatsappUrl={WHATSAPP} />);
+  await screen.findByText("Camiseta Aeromédico");
+}
+
+describe("CartView com frete", () => {
+  beforeEach(() => quoteShippingAction.mockReset());
+
+  it("o botão só habilita com 8 dígitos e o campo põe o hífen", async () => {
+    await renderWithShirts();
+    const button = screen.getByRole("button", { name: "Calcular frete" }) as HTMLButtonElement;
+    const input = screen.getByLabelText("CEP de entrega") as HTMLInputElement;
+    expect(button.disabled).toBe(true);
+
+    fireEvent.change(input, { target: { value: "0101" } });
+    expect(button.disabled).toBe(true);
+
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    fireEvent.change(input, { target: { value: "01018020" } });
+    expect(input.value).toBe("01018-020");
+    expect(button.disabled).toBe(false);
+
+    fireEvent.click(button);
+    await waitFor(() => expect(quoteShippingAction).toHaveBeenCalledWith([shirt(2)], "01018-020"));
+  });
+
+  it("mostra as opções com a mais barata marcada e o frete e o total no resumo", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+
+    const group = await screen.findByRole("group", { name: "Opções de entrega" });
+    const radios = within(group).getAllByRole("radio") as HTMLInputElement[];
+    expect(radios).toHaveLength(2);
+    expect(radios[0].checked).toBe(true);
+    expect(money(group.textContent)).toContain("Correios PAC · R$ 23,45 · até 6 dias úteis");
+    expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 23,45");
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 123,25");
+  });
+
+  it("trocar a opção troca o frete e o total", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    const group = await screen.findByRole("group", { name: "Opções de entrega" });
+
+    fireEvent.click(within(group).getAllByRole("radio")[1]);
+
+    expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 41,20");
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 141,00");
+  });
+
+  it("cupom e frete juntos: total = subtotal − desconto + frete", async () => {
+    await renderWithShirts(2, true);
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+
+    await screen.findByRole("group", { name: "Opções de entrega" });
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 113,27");
+  });
+
+  it("mexer no carrinho invalida a cotação: some o frete do total e pede para calcular de novo", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    await screen.findByRole("group", { name: "Opções de entrega" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+
+    expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
+    expect(screen.queryByTestId("cart-shipping")).toBeNull();
+    expect(screen.queryByTestId("cart-total")).toBeNull();
+    expect(screen.getByText("O carrinho mudou. Calcule o frete de novo.")).toBeTruthy();
+  });
+
+  it("cotação que volta depois de o carrinho mudar não vale", async () => {
+    await renderWithShirts();
+    let release!: (value: unknown) => void;
+    quoteShippingAction.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    calculate();
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+    await act(async () => {
+      release(quoteOk());
+    });
+
+    expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
+    expect(screen.queryByTestId("cart-shipping")).toBeNull();
+    expect(screen.getByText("O carrinho mudou. Calcule o frete de novo.")).toBeTruthy();
+  });
+
+  it("frete não configurado: aviso em status, sem opções, e o frete continua combinado no WhatsApp", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue({
+      ok: false,
+      code: "unconfigured",
+      error: "O cálculo automático do frete ainda não está ativo. O frete é combinado no WhatsApp.",
+    });
+    calculate();
+
+    const note = await screen.findByText(/O cálculo automático do frete ainda não está ativo/);
+    expect(note.getAttribute("role")).toBe("status");
+    expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
+  });
+
+  it.each([
+    ["invalid-cep", "CEP não encontrado. Confira os 8 números."],
+    ["unavailable", "Não foi possível calcular o frete agora. Tente de novo."],
+  ])("erro %s aparece em alerta e o botão volta a habilitar", async (code, error) => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue({ ok: false, code, error });
+    calculate();
+
+    const alert = await screen.findByText(error);
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect((screen.getByRole("button", { name: "Calcular frete" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText("Camiseta Aeromédico")).toBeTruthy();
+  });
+
+  it("o link do WhatsApp leva o frete, o total e a pergunta só sobre pagamento", async () => {
+    await renderWithShirts();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+    calculate();
+    await screen.findByRole("group", { name: "Opções de entrega" });
+
+    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
+    const text = decodeURIComponent(href.split("?text=")[1]);
+    expect(text).toContain("Frete (Correios PAC, CEP 01018-020): R$ 23,45");
+    expect(text).toContain("Total: R$ 123,25");
+    expect(text).toContain("Pode me passar as formas de pagamento?");
   });
 });

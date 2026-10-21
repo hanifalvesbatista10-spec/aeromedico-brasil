@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
+import { CartShipping, type ShippingSelection } from "@/components/store/cart-shipping";
 import { useCart } from "@/hooks/use-cart";
 import { priceCartAction } from "@/lib/actions/cart";
 import { MAX_LINE_QUANTITY, lineKey, serializeCart } from "@/lib/cart/cart";
@@ -65,6 +66,8 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
   // Texto digitado no campo e código já enviado ao servidor (cupom aplicado ou tentado).
   const [couponInput, setCouponInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  // Entrega escolhida: só vale enquanto o carrinho for o mesmo da cotação.
+  const [shippingChoice, setShippingChoice] = useState<ShippingSelection | null>(null);
   const latestRequest = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -211,7 +214,9 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     const evaluation = coupon ? evaluateCoupon(coupon, subtotalCents, new Date()) : null;
     const discountCents = evaluation?.ok ? evaluation.discountCents : 0;
     const couponMessage = evaluation && !evaluation.ok ? evaluation.message : null;
-    const totalCents = subtotalCents - discountCents;
+    const shipping =
+      shippingChoice && shippingChoice.signature === cartSignature ? shippingChoice : null;
+    const totalCents = subtotalCents - discountCents + (shipping?.priceCents ?? 0);
 
     const whatsappHref =
       lines.length > 0
@@ -220,9 +225,20 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
             buildCartWhatsappMessage(
               lines,
               subtotalCents,
-              coupon && discountCents > 0
-                ? { coupon: { code: coupon.code, discountCents } }
-                : {}
+              {
+                ...(coupon && discountCents > 0
+                  ? { coupon: { code: coupon.code, discountCents } }
+                  : {}),
+                ...(shipping
+                  ? {
+                      shipping: {
+                        label: shipping.label,
+                        cep: shipping.cep,
+                        priceCents: shipping.priceCents,
+                      },
+                    }
+                  : {}),
+              }
             )
           )
         : null;
@@ -372,18 +388,24 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
               </span>
             </p>
             {coupon && discountCents > 0 && (
-              <>
-                <p className="flex items-baseline justify-between text-sm text-green-800">
-                  <span>Desconto ({coupon.code})</span>
-                  <span data-testid="cart-discount">-{formatBRL(discountCents)}</span>
-                </p>
-                <p className="flex items-baseline justify-between border-t border-border pt-2 text-base">
-                  <span className="font-medium text-navy-950">Total</span>
-                  <span data-testid="cart-total" className="text-xl font-semibold text-navy-950">
-                    {formatBRL(totalCents)}
-                  </span>
-                </p>
-              </>
+              <p className="flex items-baseline justify-between text-sm text-green-800">
+                <span>Desconto ({coupon.code})</span>
+                <span data-testid="cart-discount">-{formatBRL(discountCents)}</span>
+              </p>
+            )}
+            {shipping && (
+              <p className="flex items-baseline justify-between text-sm text-navy-950">
+                <span>Frete</span>
+                <span data-testid="cart-shipping">{formatBRL(shipping.priceCents)}</span>
+              </p>
+            )}
+            {(discountCents > 0 || shipping) && (
+              <p className="flex items-baseline justify-between border-t border-border pt-2 text-base">
+                <span className="font-medium text-navy-950">Total</span>
+                <span data-testid="cart-total" className="text-xl font-semibold text-navy-950">
+                  {formatBRL(totalCents)}
+                </span>
+              </p>
             )}
           </div>
 
@@ -429,8 +451,14 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
             </div>
           )}
 
+          {lines.length > 0 && (
+            <CartShipping lines={cart.lines} signature={cartSignature} onSelect={setShippingChoice} />
+          )}
+
           <p className="mt-3 text-sm text-gray-600">
-            O frete e a forma de pagamento são combinados no WhatsApp.
+            {shipping
+              ? "A forma de pagamento é combinada no WhatsApp."
+              : "O frete e a forma de pagamento são combinados no WhatsApp."}
           </p>
           <div className="mt-5">
             {whatsappHref ? (
