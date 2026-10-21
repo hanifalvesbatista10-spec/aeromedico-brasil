@@ -387,45 +387,47 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
             )}
           </div>
 
-          <div className="mt-4 border-t border-border pt-4">
-            {coupon ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-navy-950">{`Cupom ${coupon.code} aplicado`}</p>
-                {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
-                <button type="button" onClick={removeCoupon} className={textAction}>
-                  Remover cupom
-                </button>
-              </div>
-            ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  applyCoupon();
-                }}
-                className="space-y-2"
-              >
-                <Label htmlFor="cart-coupon">Cupom de desconto</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="cart-coupon"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                    className="h-11"
-                  />
-                  <Button type="submit" variant="outline" className="h-11" disabled={!couponInput.trim()}>
-                    Aplicar
-                  </Button>
+          {lines.length > 0 && (
+            <div className="mt-4 border-t border-border pt-4">
+              {coupon ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-navy-950">{`Cupom ${coupon.code} aplicado`}</p>
+                  {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
+                  <button type="button" onClick={removeCoupon} className={textAction}>
+                    Remover cupom
+                  </button>
                 </div>
-                {state.couponError && (
-                  <p role="alert" className="text-sm text-red-800">
-                    {state.couponError}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
+              ) : (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    applyCoupon();
+                  }}
+                  className="space-y-2"
+                >
+                  <Label htmlFor="cart-coupon">Cupom de desconto</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="cart-coupon"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      className="h-11"
+                    />
+                    <Button type="submit" variant="outline" className="h-11" disabled={!couponInput.trim()}>
+                      Aplicar
+                    </Button>
+                  </div>
+                  {state.couponError && (
+                    <p role="alert" className="text-sm text-red-800">
+                      {state.couponError}
+                    </p>
+                  )}
+                </form>
+              )}
+            </div>
+          )}
 
           <p className="mt-3 text-sm text-gray-600">
             O frete e a forma de pagamento são combinados no WhatsApp.

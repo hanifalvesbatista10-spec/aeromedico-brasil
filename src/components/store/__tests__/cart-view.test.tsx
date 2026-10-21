@@ -344,6 +344,22 @@ describe("CartView com cupom", () => {
     expect((screen.getByRole("button", { name: "Aplicar" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("sem nenhum item válido no carrinho não há campo de cupom", async () => {
+    seed([shirt(1)]);
+    priceCartAction.mockResolvedValue({
+      ok: true,
+      coupon: null,
+      couponError: null,
+      cart: cartOf(
+        [],
+        [{ key: "camiseta:m-preta", productId: "camiseta", variantId: "m-preta", reason: "removed", name: null }]
+      ),
+    });
+    render(<CartView whatsappUrl={WHATSAPP} />);
+    await screen.findByRole("region", { name: "Estes itens não estão mais disponíveis" });
+    expect(screen.queryByLabelText("Cupom de desconto")).toBeNull();
+  });
+
   it("aplicar envia o código, mostra o desconto e o total", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
