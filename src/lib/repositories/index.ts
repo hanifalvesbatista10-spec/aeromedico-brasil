@@ -7,6 +7,7 @@ import { createSupabaseLeadsRepository } from "./supabase/leads";
 import { createSupabaseMaterialsRepository } from "./supabase/materials";
 import { createSupabaseSettingsRepository } from "./supabase/settings";
 import { createSupabaseStoreRepository } from "./supabase/store";
+import { createSupabaseCouponRepository } from "./supabase/coupons";
 
 // Único ponto de composição dos repositórios. Nenhum componente deve
 // importar uma implementação `supabase/*` ou `mock/*` diretamente — sempre
@@ -30,6 +31,7 @@ const repositories = {
   materials: createSupabaseMaterialsRepository(),
   settings: createSupabaseSettingsRepository(),
   store: createSupabaseStoreRepository(),
+  coupons: createSupabaseCouponRepository(),
 };
 
 export function getRepositories() {

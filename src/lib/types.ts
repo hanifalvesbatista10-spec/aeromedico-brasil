@@ -213,3 +213,23 @@ export interface StoreProductImage {
   colorName: string | null;
   sortOrder: number;
 }
+
+export type CouponKind = "percent" | "fixed";
+
+export interface StoreCoupon {
+  id: string;
+  /** Sempre em maiúsculas; único sem diferenciar maiúsculas. */
+  code: string;
+  kind: CouponKind;
+  /** `percent`: 1 a 100 · `fixed`: centavos (> 0). */
+  value: number;
+  /** `0` = sem pedido mínimo. */
+  minOrderCents: number;
+  /** ISO 8601; `null` = sem data. */
+  startsAt: string | null;
+  expiresAt: string | null;
+  /** `null` = sem limite de usos. */
+  maxUses: number | null;
+  usesCount: number;
+  active: boolean;
+}

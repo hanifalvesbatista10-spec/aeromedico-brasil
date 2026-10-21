@@ -226,3 +226,18 @@ export interface StoreProductImageRow {
   sort_order: number;
   created_at: string;
 }
+
+export interface StoreCouponRow {
+  id: string;
+  code: string;
+  kind: "percent" | "fixed";
+  value: number;
+  min_order_cents: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  max_uses: number | null;
+  uses_count: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}

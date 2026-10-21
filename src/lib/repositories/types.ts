@@ -7,6 +7,7 @@ import type {
   SiteSettings,
   SpeakingTopic,
   StoreCategory,
+  StoreCoupon,
   StoreProduct,
   StoreProductImage,
   StoreVariant,
@@ -106,4 +107,23 @@ export interface StoreRepository {
   createCategory(input: Omit<StoreCategory, "id">): Promise<StoreCategory>;
   updateCategory(id: string, patch: Partial<StoreCategory>): Promise<StoreCategory | null>;
   removeCategory(id: string): Promise<void>;
+}
+
+export const DUPLICATE_COUPON_MESSAGE = "Já existe um cupom com este código.";
+
+export interface CouponRepository {
+  /** Administrador: todos os cupons, por código. */
+  list(): Promise<StoreCoupon[]>;
+  create(input: Omit<StoreCoupon, "id">): Promise<StoreCoupon>;
+  update(
+    id: string,
+    patch: Partial<Omit<StoreCoupon, "id">>
+  ): Promise<StoreCoupon | null>;
+  remove(id: string): Promise<void>;
+  /**
+   * Público: o cupom ATIVO com este código (sem diferenciar maiúsculas e
+   * ignorando espaços nas pontas), ou `null`. Cupom inativo e cupom que não
+   * existe dão a mesma resposta.
+   */
+  findActiveByCode(code: string): Promise<StoreCoupon | null>;
 }
