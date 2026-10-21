@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useCart } from "@/hooks/use-cart";
+import { lineKey } from "@/lib/cart/cart";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/money";
 import { buildWhatsappLink } from "@/lib/utils/whatsapp";
@@ -31,8 +34,9 @@ function statusLabel(status: string, missingSize: boolean, missingColor: boolean
 }
 
 /**
- * Galeria, escolha de tamanho/cor, preço e botão de compra de um produto.
- * Enquanto não há carrinho nem pagamento, a compra é pelo WhatsApp do cliente.
+ * Galeria, escolha de tamanho/cor, preço e compra de um produto: adiciona ao
+ * carrinho e, se o WhatsApp do cliente estiver configurado, também permite
+ * comprar só este item por lá.
  */
 export function VariantPicker({
   product,
@@ -58,6 +62,9 @@ export function VariantPicker({
     options.colors.length === 1 ? options.colors[0].name : null
   );
   const [photoIndex, setPhotoIndex] = useState(0);
+  // Chave da combinação que acabou de ir para o carrinho (some ao trocar a escolha).
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const cart = useCart();
 
   const selection = resolveSelection(product, variants, size, colorName);
   const gallery = imagesForColor(images, colorName);
@@ -73,6 +80,18 @@ export function VariantPicker({
           buildStoreWhatsappMessage(product.name, size, colorName)
         )
       : null;
+
+  const cartLine = {
+    productId: product.id,
+    variantId: selection.variant?.id ?? null,
+    quantity: 1,
+  };
+  const addedHere = justAdded === lineKey(cartLine);
+
+  function addToCart() {
+    cart.add(cartLine);
+    setJustAdded(lineKey(cartLine));
+  }
 
   // Nunca prender o cliente: escolher uma opção que não combina com a outra
   // já escolhida aceita a nova e limpa a outra (ex.: Preta só tem P, Rosa só
@@ -231,17 +250,27 @@ export function VariantPicker({
           </fieldset>
         )}
 
-        <div className="mt-10">
-          {whatsappHref ? (
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}
-            >
-              Comprar pelo WhatsApp
-              <span className="sr-only"> (abre em nova aba)</span>
-            </a>
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {selection.status === "ready" ? (
+            <>
+              <Button size="lg" onClick={addToCart} className="w-full sm:w-auto">
+                Adicionar ao carrinho
+              </Button>
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ size: "lg", variant: "outline" }),
+                    "w-full sm:w-auto"
+                  )}
+                >
+                  Comprar pelo WhatsApp
+                  <span className="sr-only"> (abre em nova aba)</span>
+                </a>
+              )}
+            </>
           ) : (
             <span
               aria-disabled="true"
@@ -250,16 +279,27 @@ export function VariantPicker({
                 "pointer-events-none w-full opacity-60 sm:w-auto"
               )}
             >
-              {selection.status === "ready"
-                ? "Compra em breve"
-                : statusLabel(
-                    selection.status,
-                    needsSize && size === null,
-                    needsColor && colorName === null
-                  )}
+              {statusLabel(
+                selection.status,
+                needsSize && size === null,
+                needsColor && colorName === null
+              )}
             </span>
           )}
         </div>
+        <p role="status" className="mt-3 min-h-6 text-sm text-gray-600">
+          {addedHere && (
+            <>
+              Adicionado ao carrinho.{" "}
+              <Link
+                href="/carrinho"
+                className="font-medium text-navy-700 underline underline-offset-2"
+              >
+                Ver carrinho
+              </Link>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

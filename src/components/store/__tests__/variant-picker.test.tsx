@@ -1,8 +1,11 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { VariantPicker } from "../variant-picker";
 import type { StoreProduct, StoreProductImage, StoreVariant } from "@/lib/types";
 
+const CART_KEY = "aeromedico:cart:v1";
+
+beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 const WHATSAPP = "https://wa.me/5585999998888";
@@ -70,6 +73,7 @@ function click(name: string | RegExp) {
 }
 
 const buyLink = () => screen.queryByRole("link", { name: /Comprar pelo WhatsApp/ });
+const addButton = () => screen.queryByRole("button", { name: "Adicionar ao carrinho" });
 
 describe("VariantPicker", () => {
   it("começa sem escolha: pede tamanho e cor e mostra o preço inicial", () => {
@@ -107,12 +111,69 @@ describe("VariantPicker", () => {
     expect(screen.getByText("Esgotado")).toBeTruthy();
   });
 
-  it("com o WhatsApp ainda sem número, a compra aparece como 'em breve', nunca um link quebrado", () => {
+  it("com o WhatsApp ainda sem número, não há link quebrado, mas o carrinho continua disponível", () => {
     renderShirt("https://wa.me/");
     click("P");
     click(/Preta/);
     expect(buyLink()).toBeNull();
-    expect(screen.getByText("Compra em breve")).toBeTruthy();
+    expect(screen.queryByText("Compra em breve")).toBeNull();
+    expect(addButton()).toBeTruthy();
+  });
+
+  describe("carrinho", () => {
+    const stored = () => JSON.parse(window.localStorage.getItem(CART_KEY) ?? "[]");
+
+    it("com tamanho e cor, adicionar grava a variação exata com quantidade 1", () => {
+      renderShirt();
+      click("P");
+      click(/Branca/);
+      fireEvent.click(addButton()!);
+      expect(stored()).toEqual([{ productId: "p1", variantId: "pb", quantity: 1 }]);
+    });
+
+    it("adicionar duas vezes soma 2 e avisa com link para o carrinho", () => {
+      renderShirt();
+      click("P");
+      click(/Preta/);
+      fireEvent.click(addButton()!);
+      fireEvent.click(addButton()!);
+      expect(stored()).toEqual([{ productId: "p1", variantId: "pp", quantity: 2 }]);
+
+      const status = screen.getByRole("status");
+      expect(status.textContent).toContain("Adicionado ao carrinho.");
+      expect(within(status).getByRole("link", { name: "Ver carrinho" }).getAttribute("href")).toBe(
+        "/carrinho"
+      );
+    });
+
+    it("sem escolha completa o botão não existe", () => {
+      renderShirt();
+      click("P");
+      expect(addButton()).toBeNull();
+      expect(screen.getByText("Escolha a cor")).toBeTruthy();
+    });
+
+    it("combinação esgotada não oferece o botão", () => {
+      renderShirt();
+      click("G");
+      click(/Preta/);
+      expect(addButton()).toBeNull();
+    });
+
+    it("produto sem variações adiciona com variantId nulo", () => {
+      renderShirt(WHATSAPP, { hasVariants: false }, []);
+      fireEvent.click(addButton()!);
+      expect(stored()).toEqual([{ productId: "p1", variantId: null, quantity: 1 }]);
+    });
+
+    it("trocar a escolha apaga o aviso de 'adicionado'", () => {
+      renderShirt();
+      click("P");
+      click(/Preta/);
+      fireEvent.click(addButton()!);
+      click(/Branca/);
+      expect(screen.getByRole("status").textContent).not.toContain("Adicionado");
+    });
   });
 
   it("produto sem variações vende direto, com o preço base", () => {
