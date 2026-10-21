@@ -6,6 +6,7 @@ import {
   describeCouponUses,
   describeCouponValue,
   emptyCouponForm,
+  formatDateTimeLocal,
   fromLocalInput,
   toLocalInput,
 } from "../coupon-drafts";
@@ -113,5 +114,17 @@ describe("rótulos da lista", () => {
     expect(couponStatus(coupon(), NOW)).toBe("Ativo");
     // Inativo vence qualquer outra situação.
     expect(couponStatus(coupon({ active: false, expiresAt: "2026-11-01T00:00:00Z" }), NOW)).toBe("Inativo");
+  });
+});
+
+describe("formatDateTimeLocal", () => {
+  it("mostra dia/mês/ano e hora no fuso do navegador", () => {
+    const iso = new Date(2026, 11, 31, 23, 59).toISOString();
+    expect(formatDateTimeLocal(iso)).toBe("31/12/2026 23:59");
+  });
+
+  it("vazio e inválido ficam vazios", () => {
+    expect(formatDateTimeLocal(null)).toBe("");
+    expect(formatDateTimeLocal("lixo")).toBe("");
   });
 });

@@ -148,3 +148,63 @@ describe("CouponsManager", () => {
     expect(screen.getByText("Expirado")).toBeTruthy();
   });
 });
+
+describe("CouponsManager: ajustes da revisão", () => {
+  it("a coluna Validade mostra o horário no fuso do navegador (23:59 não vira o dia seguinte)", () => {
+    const fim = new Date(2026, 11, 31, 23, 59).toISOString();
+    render(<CouponsManager initialCoupons={[coupon({ expiresAt: fim })]} />);
+    expect(screen.getAllByRole("row")[1].textContent).toContain("Até 31/12/2026 23:59");
+  });
+
+  it("sem pedido mínimo a coluna diz 'Sem mínimo'", () => {
+    render(<CouponsManager initialCoupons={[coupon()]} />);
+    expect(screen.getAllByRole("row")[1].textContent).toContain("Sem mínimo");
+  });
+
+  it("o diálogo é largo o bastante, fala do fuso do navegador e tem botão Fechar em português", () => {
+    render(<CouponsManager initialCoupons={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Novo cupom" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.className).toContain("sm:max-w-lg");
+    expect(dialog.textContent).toContain("A data usa o fuso do seu navegador.");
+    expect(within(dialog).getByRole("button", { name: "Fechar" })).toBeTruthy();
+    expect(dialog.textContent).not.toContain("Horário de Brasília");
+  });
+
+  it("Enter nos campos envia o formulário", async () => {
+    saveStoreCoupon.mockResolvedValue({ ok: true, data: coupon() });
+    render(<CouponsManager initialCoupons={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Novo cupom" }));
+    fireEvent.change(screen.getByLabelText("Código"), { target: { value: "verao10" } });
+    fireEvent.change(screen.getByLabelText("Percentual (%)"), { target: { value: "10" } });
+
+    const form = screen.getByRole("dialog").querySelector("form")!;
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(saveStoreCoupon).toHaveBeenCalledTimes(1));
+  });
+
+  it("ativar/desativar anuncia o resultado", async () => {
+    toggleStoreCouponActive.mockResolvedValue(coupon({ active: false }));
+    render(<CouponsManager initialCoupons={[coupon()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Desativar VERAO10" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("coupons-announcer").textContent).toBe("Cupom VERAO10 desativado.")
+    );
+  });
+
+  it("excluir anuncia e leva o foco para o título da seção (a linha some)", async () => {
+    deleteStoreCoupon.mockResolvedValue(undefined);
+    render(<CouponsManager initialCoupons={[coupon()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Excluir VERAO10" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Para só pausar, use Desativar.");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Excluir" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("coupons-announcer").textContent).toBe("Cupom VERAO10 excluído.")
+    );
+    await waitFor(() => expect(document.activeElement?.id).toBe("coupons-title"));
+  });
+});

@@ -43,6 +43,16 @@ export function toLocalInput(iso: string | null): string {
   )}:${pad(date.getMinutes())}`;
 }
 
+/** "31/12/2026 23:59" no fuso do navegador (a data do banco é UTC); vazio/inválido vira "". */
+export function formatDateTimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+}
+
 /** Texto do `datetime-local` (fuso do navegador) → ISO; vazio/inválido vira "". */
 export function fromLocalInput(local: string): string {
   if (!local) return "";

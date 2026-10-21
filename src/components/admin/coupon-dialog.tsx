@@ -39,6 +39,7 @@ export function CouponDialog({
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
+    if (saving) return;
     setSaving(true);
     setError(null);
     try {
@@ -58,12 +59,19 @@ export function CouponDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{coupon ? "Editar cupom" : "Novo cupom"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form
+          id="coupon-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSave();
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="coupon-code">Código</Label>
             <Input
@@ -78,7 +86,7 @@ export function CouponDialog({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="coupon-kind">Tipo de desconto</Label>
               <select
@@ -114,11 +122,11 @@ export function CouponDialog({
               inputMode="decimal"
               value={form.minOrder}
               onChange={(e) => setForm({ ...form, minOrder: e.target.value })}
-              placeholder="Vazio = sem mínimo"
+              placeholder="Sem mínimo"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="coupon-starts">Início</Label>
               <Input
@@ -139,10 +147,10 @@ export function CouponDialog({
             </div>
           </div>
           <p className="-mt-2 text-xs text-gray-600">
-            Deixe vazio para valer sem data de início ou de fim. Horário de Brasília.
+            Deixe vazio para valer sem data de início ou de fim. A data usa o fuso do seu navegador.
           </p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="coupon-max-uses">Limite de usos</Label>
               <Input
@@ -150,7 +158,7 @@ export function CouponDialog({
                 inputMode="numeric"
                 value={form.maxUses}
                 onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
-                placeholder="Vazio = sem limite"
+                placeholder="Sem limite"
               />
             </div>
             <div className="space-y-2">
@@ -183,14 +191,14 @@ export function CouponDialog({
               {error}
             </p>
           )}
-        </div>
 
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando…" : "Salvar"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+            <Button type="submit" aria-disabled={saving}>
+              {saving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

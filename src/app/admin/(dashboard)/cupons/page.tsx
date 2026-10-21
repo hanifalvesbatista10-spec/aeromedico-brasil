@@ -13,8 +13,8 @@ export default async function AdminCuponsPage() {
     console.error("[admin/cupons] tabela indisponível", error);
     return (
       <EmptyState
-        title="Os cupons ainda não estão ativos."
-        description="Aplique a migration 20261020120000_store_coupons.sql no Supabase do projeto e recarregue esta página."
+        title="Não foi possível carregar os cupons."
+        description="Se a migration 20261020120000_store_coupons.sql ainda não foi aplicada no Supabase do projeto, aplique-a e recarregue esta página."
       />
     );
   }
