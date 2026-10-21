@@ -54,7 +54,7 @@ ordem:
 3. `20260905120200_cms_storage.sql`
 4. `20260905120300_cms_seed.sql`
 5. `20261018120000_store_catalog.sql` (loja: categorias, produtos, variações e fotos; o catálogo nasce vazio)
-6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Cupons indisponíveis no momento.")
+6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Não foi possível verificar o cupom agora.")
 
 **Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
 mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
@@ -171,7 +171,10 @@ preenchidas com informação real antes de publicar.
   limite de usos; um cupom por pedido. O visitante não consegue listar cupons: o
   código é validado por uma função SQL que devolve um único cupom ativo. O
   contador de usos só sobe quando existirem pedidos gravados; até lá, o dono pode
-  ajustar "Usos já feitos" à mão.
+  ajustar "Usos já feitos" à mão. **Cupom privado (para alunos, parceiros) precisa
+  de código longo e difícil de adivinhar** (o painel exige pelo menos 6 caracteres; use
+  algo como `PARCEIRO-7K2Q9X`): a consulta de código é pública e pode ser testada por
+  tentativa. O dono sempre confere cupom, frete e total antes de cobrar.
 - **Frete automático (Melhor Envio)**: o cliente digita o CEP no carrinho e escolhe a
   entrega; o cálculo usa peso e medidas de cada produto (cadastrados no painel) e o
   valor declarado é o preço de venda. Para ligar:
@@ -202,6 +205,11 @@ preenchidas com informação real antes de publicar.
 **Textos jurídicos**
 - `/politica-de-privacidade` e `/termos-de-uso` são modelos iniciais e
   precisam de revisão jurídica antes da publicação.
+- **A política de privacidade ainda não cobre a loja**: o CEP de entrega é enviado ao
+  Melhor Envio (cálculo do frete) e entra na mensagem do WhatsApp, os dados do pedido
+  seguem pelo WhatsApp e o carrinho (só ids e quantidades) fica no navegador. O CEP
+  não é gravado no servidor. Incluir esses pontos na revisão jurídica antes de divulgar
+  a loja.
 
 **Limitações conhecidas**
 - Sem rate limiting de infraestrutura no endpoint de leads; hoje há apenas
