@@ -90,3 +90,28 @@ export function paymentOptions(orderCents: number, fees: PaymentFees): PaymentOp
     },
   ];
 }
+
+/** Valida a configuração de taxas; devolve a mensagem do primeiro problema ou `null`. */
+export function validatePaymentFees(fees: PaymentFees): string | null {
+  const rules: [string, FeeRule][] = [
+    ["Pix", fees.pix],
+    ["Cartão à vista", fees.cardSingle],
+    ["Cartão parcelado", fees.cardInstallments],
+  ];
+  for (const [label, rule] of rules) {
+    if (!Number.isInteger(rule.fixedCents) || rule.fixedCents < 0) {
+      return `${label}: a taxa fixa deve ser um valor maior ou igual a zero.`;
+    }
+    if (!Number.isInteger(rule.percentBp) || rule.percentBp < 0 || rule.percentBp >= 10000) {
+      return `${label}: o percentual deve ser maior ou igual a zero e menor que 100%.`;
+    }
+  }
+  if (
+    !Number.isInteger(fees.maxInstallments) ||
+    fees.maxInstallments < 1 ||
+    fees.maxInstallments > 21
+  ) {
+    return "O máximo de parcelas deve ser um número inteiro de 1 a 21.";
+  }
+  return null;
+}

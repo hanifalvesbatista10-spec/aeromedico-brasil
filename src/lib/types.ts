@@ -233,3 +233,79 @@ export interface StoreCoupon {
   usesCount: number;
   active: boolean;
 }
+
+export type OrderStatus =
+  | "awaiting_payment"
+  | "paid"
+  | "paid_review"
+  | "preparing"
+  | "shipped"
+  | "delivered"
+  | "canceled"
+  | "expired";
+
+export interface OrderItemInput {
+  productId: string;
+  variantId: string | null;
+  name: string;
+  size: string | null;
+  colorName: string | null;
+  unitPriceCents: number;
+  quantity: number;
+  weightGrams: number;
+}
+
+/** Pedido montado pelo SERVIDOR (nunca pelo navegador) antes de ser gravado. */
+export interface OrderDraft {
+  customer: { name: string; email: string; phone: string };
+  address: {
+    cep: string;
+    street: string;
+    number: string;
+    complement: string | null;
+    district: string;
+    city: string;
+    state: string;
+  };
+  shipping: { optionId: string; label: string; cents: number };
+  items: OrderItemInput[];
+  subtotalCents: number;
+  discountCents: number;
+  couponCode: string | null;
+  /** Taxa do meio de pagamento repassada ao cliente. */
+  feeCents: number;
+  totalCents: number;
+  paymentMethod: import("@/lib/payments/fees").PaymentMethod;
+}
+
+export interface StoreOrder extends OrderDraft {
+  id: string;
+  number: number;
+  status: OrderStatus;
+  checkoutId: string | null;
+  trackingCode: string | null;
+  notes: string | null;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+/** O que a página do pedido mostra: sem e-mail, telefone nem endereço. */
+export interface PublicOrder {
+  id: string;
+  number: number;
+  status: OrderStatus;
+  items: {
+    name: string;
+    size: string | null;
+    colorName: string | null;
+    quantity: number;
+    unitPriceCents: number;
+  }[];
+  subtotalCents: number;
+  discountCents: number;
+  shippingCents: number;
+  feeCents: number;
+  totalCents: number;
+  paymentMethod: import("@/lib/payments/fees").PaymentMethod;
+  trackingCode: string | null;
+}

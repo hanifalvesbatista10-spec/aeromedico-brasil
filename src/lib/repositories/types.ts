@@ -3,16 +3,21 @@ import type {
   FAQItem,
   Lead,
   Material,
+  OrderDraft,
+  OrderStatus,
   Program,
+  PublicOrder,
   SiteSettings,
   SpeakingTopic,
   StoreCategory,
   StoreCoupon,
   StoreProduct,
   StoreProductImage,
+  StoreOrder,
   StoreVariant,
   Testimonial,
 } from "@/lib/types";
+import type { PaymentFees } from "@/lib/payments/fees";
 
 export interface ProgramsRepository {
   list(): Promise<Program[]>;
@@ -126,4 +131,41 @@ export interface CouponRepository {
    * existe dão a mesma resposta.
    */
   findActiveByCode(code: string): Promise<StoreCoupon | null>;
+}
+
+export type ApplyEventResult =
+  | "paid"
+  | "paid_review"
+  | "duplicate"
+  | "ignored"
+  | "canceled"
+  | "expired";
+
+export interface OrderRepository {
+  /** Servidor, protegido por segredo: grava o pedido (e os itens) no banco. */
+  create(draft: OrderDraft): Promise<{ id: string; number: number; accessToken: string }>;
+  attachCheckout(orderId: string, checkout: { id: string; url: string }): Promise<void>;
+  /** Cancela pedido que ainda não tem checkout (o Asaas falhou ao criá-lo). */
+  cancelPending(orderId: string): Promise<void>;
+  /** Aplica um evento do Asaas; idempotente pelo `eventId`. */
+  applyEvent(event: {
+    eventId: string;
+    type: string;
+    checkoutId: string;
+    payload: unknown;
+  }): Promise<ApplyEventResult>;
+  /** Público: resumo do pedido se a chave estiver certa; senão `null` (igual a pedido inexistente). */
+  getPublic(orderId: string, token: string): Promise<PublicOrder | null>;
+  /** Administrador (RLS): todos os pedidos, do mais novo ao mais antigo. */
+  list(): Promise<StoreOrder[]>;
+  updateFulfillment(
+    id: string,
+    patch: { status?: OrderStatus; trackingCode?: string | null; notes?: string | null }
+  ): Promise<StoreOrder | null>;
+}
+
+export interface PaymentSettingsRepository {
+  /** Cai nos valores padrão se a tabela ainda não existir. */
+  get(): Promise<PaymentFees>;
+  update(fees: PaymentFees): Promise<PaymentFees>;
 }

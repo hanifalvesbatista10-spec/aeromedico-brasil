@@ -241,3 +241,69 @@ export interface StoreCouponRow {
   created_at: string;
   updated_at: string;
 }
+
+export interface StoreOrderRow {
+  id: string;
+  number: number;
+  access_token: string;
+  status:
+    | "awaiting_payment"
+    | "paid"
+    | "paid_review"
+    | "preparing"
+    | "shipped"
+    | "delivered"
+    | "canceled"
+    | "expired";
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  ship_cep: string;
+  ship_street: string;
+  ship_number: string;
+  ship_complement: string | null;
+  ship_district: string;
+  ship_city: string;
+  ship_state: string;
+  ship_option_id: string;
+  ship_label: string;
+  subtotal_cents: number;
+  discount_cents: number;
+  coupon_code: string | null;
+  shipping_cents: number;
+  fee_cents: number;
+  total_cents: number;
+  payment_method: "pix" | "card_single" | "card_installments";
+  asaas_checkout_id: string | null;
+  asaas_checkout_url: string | null;
+  tracking_code: string | null;
+  notes: string | null;
+  created_at: string;
+  paid_at: string | null;
+  updated_at: string;
+}
+
+export interface StoreOrderItemRow {
+  id: string;
+  order_id: string;
+  product_id: string | null;
+  variant_id: string | null;
+  name: string;
+  size: string | null;
+  color_name: string | null;
+  unit_price_cents: number;
+  quantity: number;
+  weight_grams: number;
+}
+
+export interface StorePaymentSettingsRow {
+  id: boolean;
+  pix_fixed_cents: number;
+  pix_percent_bp: number;
+  card_single_fixed_cents: number;
+  card_single_percent_bp: number;
+  card_installments_fixed_cents: number;
+  card_installments_percent_bp: number;
+  max_installments: number;
+  updated_at: string;
+}
