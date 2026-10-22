@@ -15,10 +15,14 @@ describe("feeFor", () => {
       for (let i = 0; i < 200; i++) {
         const order = 1 + i * 2500;
         const { totalCents } = feeFor(order, rule);
-        const net = (total: number) =>
-          total - (Math.floor((total * rule.percentBp) / 10000) + rule.fixedCents);
-        expect(net(totalCents)).toBeGreaterThanOrEqual(order);
-        expect(net(totalCents - 1)).toBeLessThan(order);
+        // O que sobra depois da taxa, com a taxa arredondada para baixo.
+        const net = totalCents - (Math.floor((totalCents * rule.percentBp) / 10000) + rule.fixedCents);
+        expect(net).toBeGreaterThanOrEqual(order);
+        // Mínimo exato: um centavo a menos não cobriria (pedido + fixa) / (1 − percentual).
+        const covers = (total: number) =>
+          total * (10000 - rule.percentBp) >= (order + rule.fixedCents) * 10000;
+        expect(covers(totalCents)).toBe(true);
+        expect(covers(totalCents - 1)).toBe(false);
       }
     }
   });
