@@ -13,6 +13,8 @@ import type { ShippingOption } from "@/lib/shipping/types";
 
 /** Opção de entrega escolhida, válida só para o carrinho (`signature`) que a originou. */
 export interface ShippingSelection {
+  /** Id da opção no Melhor Envio: o servidor refaz o frete por ele. */
+  optionId: string;
   label: string;
   /** CEP de destino, 8 dígitos. */
   cep: string;
@@ -83,6 +85,7 @@ export function CartShipping({
     const option = current.options.find((item) => item.id === id);
     if (!option) return null;
     onSelect({
+      optionId: option.id,
       label: optionLabel(option),
       cep: current.cep,
       priceCents: option.priceCents,

@@ -40,6 +40,7 @@ describe("CartShipping", () => {
 
     await waitFor(() =>
       expect(onSelect).toHaveBeenLastCalledWith({
+        optionId: "1",
         label: "Correios PAC",
         cep: "01018020",
         priceCents: 2345,
