@@ -11,6 +11,8 @@ Hoje o carrinho calcula subtotal, cupom e frete e termina numa mensagem de Whats
 - **[decidido]** O dono do site é **pessoa física (CPF)**.
 - **[decidido]** O pagamento geral usa o **Asaas**. Mercado Pago, Pagar.me e Stripe ficam de fora.
 - **[decidido]** O frete continua pelo **Melhor Envio** (cotação já implementada; token a configurar).
+- **[decidido]** **Formas de pagamento: Pix, cartão à vista e cartão parcelado de 2x a 6x.** A **taxa do Asaas é repassada ao cliente em todas elas**: o dono recebe o valor cheio do pedido e o cliente paga o preço + a taxa da forma escolhida.
+- **[decidido]** O Pix expira em **30 minutos**. Pedido novo é avisado só no painel por enquanto (sem e-mail). Segredo restrito no lugar de `service_role`: de acordo.
 
 ## Pesquisado na documentação do Asaas
 
@@ -24,25 +26,29 @@ Hoje o carrinho calcula subtotal, cupom e frete e termina numa mensagem de Whats
 
 1. **Dados do comprador e entrega** no carrinho, depois de escolher o frete: nome, e-mail, telefone/WhatsApp e endereço completo (CEP já vem da cotação). **[minha escolha]** Sem CPF: o próprio Asaas pede os dados do pagador na página de pagamento e não os guardamos.
 2. **Pedido gravado** antes de cobrar, com um **retrato** dos preços (itens, cupom, frete, total) e status `aguardando_pagamento`. Número legível sequencial (ex.: `AB-000123`).
-3. **Checkout Asaas**: o servidor cria o checkout com **um único item** "Pedido AB-000123" no valor do total (descrição resume os itens). **[minha escolha]** Um item só evita arredondar desconto e frete linha a linha. À vista, Pix + cartão, expira em 60 minutos, `externalReference` = id do pedido. O cliente é levado ao link do Asaas.
-4. **Webhook** `POST /api/webhooks/asaas`: confere `asaas-access-token`, grava o evento (idempotente) e muda o pedido: pago, cancelado ou expirado. Ao ficar **pago**: baixa o estoque e conta o uso do cupom, tudo numa única operação do banco.
-5. **Página do pedido** `/pedido/<id>?t=<chave>` (chave aleatória longa, sem login): mostra número, itens, total e status; é o destino de sucesso do checkout.
-6. **Painel `/admin/pedidos`**: lista e detalhe (comprador, endereço, itens, cupom, frete, status do pagamento) e mudança manual de andamento: em separação, enviado (com código de rastreio digitado), entregue, cancelado.
-7. **Convivência com o WhatsApp**: o botão "Finalizar pelo WhatsApp" continua como plano B. O botão "Pagar" só aparece quando Asaas **e** frete estão configurados.
+3. **Escolha da forma de pagamento no nosso site**, antes de ir ao Asaas, mostrando o **total de cada forma**: "Pix: R$ X", "Cartão à vista: R$ Y", "Cartão parcelado em até 6x: R$ Z (2x a 6x)". O total é **preço do pedido (itens − cupom + frete) + taxa da forma**, e a taxa aparece como linha separada ("Taxa do meio de pagamento").
+   - **Cálculo da taxa (o dono recebe o valor cheio):** `total = ceil((P + fixa) / (1 − percentual))`, em centavos, sendo `P` o valor do pedido. Taxas iniciais (tabela padrão do Asaas, a conferir no contrato da conta): **Pix** fixa R$ 1,99 e 0%; **cartão à vista** R$ 0,49 + 2,99%; **cartão 2x a 6x** R$ 0,49 + 3,49% sobre o total da venda. O parcelado tem um único total para 2x a 6x, porque a taxa do Asaas é por faixa e não pela parcela exata.
+   - As taxas ficam em **configuração editável no painel** (o Asaas tem promoções de 3 meses e o contrato pode mudar), com os valores acima como inicial.
+   - O servidor **recalcula a taxa e o total**; o navegador só informa qual forma foi escolhida.
+4. **Checkout Asaas**: o servidor cria o checkout com **um único item** "Pedido AB-000123" no valor do total já com a taxa (a descrição resume os itens). **[minha escolha]** Um item só evita arredondar desconto, frete e taxa linha a linha. Conforme a forma: Pix = `billingTypes: ["PIX"]` + `DETACHED`; cartão à vista = `["CREDIT_CARD"]` + `DETACHED`; cartão parcelado = `["CREDIT_CARD"]` + `INSTALLMENT` com `installment.maxInstallmentCount: 6`. Expira em **30 minutos**, `externalReference` = id do pedido. O cliente é levado ao link do Asaas. **[a confirmar no sandbox]** Se o Asaas deixar o pagador escolher 1x dentro do parcelado ou travar o mínimo de parcelas.
+5. **Webhook** `POST /api/webhooks/asaas`: confere `asaas-access-token`, grava o evento (idempotente) e muda o pedido: pago, cancelado ou expirado. Ao ficar **pago**: baixa o estoque e conta o uso do cupom, tudo numa única operação do banco.
+6. **Página do pedido** `/pedido/<id>?t=<chave>` (chave aleatória longa, sem login): mostra número, itens, total e status; é o destino de sucesso do checkout.
+7. **Painel `/admin/pedidos`**: lista e detalhe (comprador, endereço, itens, cupom, frete, status do pagamento) e mudança manual de andamento: em separação, enviado (com código de rastreio digitado), entregue, cancelado.
+8. **Convivência com o WhatsApp**: o botão "Finalizar pelo WhatsApp" continua como plano B. O botão "Pagar" só aparece quando Asaas **e** frete estão configurados.
 
 ## Objetivos, não objetivos, antiobjetivos
 
 **Objetivos:** o valor cobrado é sempre o que o servidor calculou; pedido só vira "pago" por webhook autenticado; estoque e cupom não ficam inconsistentes; o dono enxerga tudo no painel.
 
-**Não objetivos (ficam para depois):** comprar etiqueta e rastrear pelo Melhor Envio; conta do comprador e "área do cliente" (repetir pedido, endereço salvo); e-mail transacional; reembolso por API (o dono estorna no painel do Asaas); nota fiscal; parcelamento; boleto; cursos e mentoria pagos.
+**Não objetivos (ficam para depois):** comprar etiqueta e rastrear pelo Melhor Envio; conta do comprador e "área do cliente" (repetir pedido, endereço salvo); e-mail transacional; reembolso por API (o dono estorna no painel do Asaas); nota fiscal; boleto; parcelamento acima de 6x; cursos e mentoria pagos.
 
-**Antiobjetivos (falha mesmo funcionando):** cobrar valor errado ou aceitar preço vindo do navegador; marcar pago sem confirmação autenticada; pedido pago e estoque negativo sem aviso; um comprador ver o pedido de outro; chave do Asaas ou segredo no código ou no navegador; webhook forjado alterar pedido.
+**Antiobjetivos (falha mesmo funcionando):** cobrar valor errado ou aceitar preço ou taxa vindos do navegador; taxa escondida (o cliente sempre vê o preço do pedido, a taxa e o total antes de pagar); marcar pago sem confirmação autenticada; pedido pago e estoque negativo sem aviso; um comprador ver o pedido de outro; chave do Asaas ou segredo no código ou no navegador; webhook forjado alterar pedido.
 
 ## Restrições
 
 - Sem `service_role`. **[minha escolha]** Quem grava pedido e confirma pagamento é o servidor, por **funções SQL `security definer` que exigem um segredo do servidor** (`ORDERS_RPC_SECRET`, guardado no banco em tabela sem acesso público e conferido dentro da função). É uma credencial restrita a poucas operações, não a chave-mestra. Alternativa descartada por ora: liberar `service_role` só no servidor (mais simples, porém poder total).
 - Tabelas de pedido: RLS ligada, administrador (`is_admin()`) lê e atualiza o andamento; visitante não lê nada. A página do pedido lê por função que confere a chave.
-- Valores em centavos. O servidor **refaz tudo** ao criar o pedido: itens e preços (`priceCart`), cupom (`evaluateCoupon`), e **cota o frete de novo** com o provedor, escolhendo a mesma opção por id. Se o preço do frete mudou desde que o cliente viu, devolve aviso e pede para confirmar.
+- Valores em centavos. O servidor **refaz tudo** ao criar o pedido: itens e preços (`priceCart`), cupom (`evaluateCoupon`), **taxa da forma de pagamento** e **frete cotado de novo** com o provedor, escolhendo a mesma opção por id. Se o preço do frete mudou desde que o cliente viu, devolve aviso e pede para confirmar.
 - Variáveis só de servidor: `ASAAS_API_KEY`, `ASAAS_ENV` (`sandbox`/`production`, padrão sandbox), `ASAAS_WEBHOOK_TOKEN`, `ORDERS_RPC_SECRET`. `NEXT_PUBLIC_SITE_URL` já existe e define os retornos.
 - Migrations são arquivos; o responsável executa. SQL completo também no chat.
 - Sem push nem deploy sem aprovação; trabalho na `main`.
@@ -60,12 +66,9 @@ Passamos a guardar nome, e-mail, telefone e endereço de entrega. Isso precisa e
 
 Nomes de tabelas e colunas, forma exata das funções SQL, layout do formulário de entrega e das telas do painel, mapeamento dos campos do webhook depois de observar o payload real no sandbox.
 
-## Perguntas que são suas
+## Ponto de atenção jurídico
 
-1. **Parcelamento**: lançar só à vista? (padrão deste desenho) Parcelar é política de preço do dono e custa taxa maior.
-2. **Aviso de pedido novo**: sem e-mail transacional, o dono vê no painel. Aceita assim por enquanto, ou quer um aviso por WhatsApp/e-mail na próxima fase?
-3. **Credencial restrita por segredo** (acima) em vez de `service_role`: de acordo?
-4. **Prazo do Pix**: 60 minutos serve?
+Cobrar valores diferentes conforme a forma de pagamento (e repassar a taxa) costuma ser permitido quando a diferença é informada de forma clara antes da compra, e o parcelado precisa mostrar o número de parcelas, o valor de cada uma e o total. **Não é parecer jurídico**: o dono confirma com o contador ou advogado antes de divulgar. O desenho já mostra preço, taxa e total em linhas separadas.
 
 ## Antes de construir (da sua parte)
 
