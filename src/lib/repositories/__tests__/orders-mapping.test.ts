@@ -75,7 +75,12 @@ describe("orderDraftToRpc", () => {
       feeCents: 199,
       totalCents: 4544,
       paymentMethod: "pix",
+      environment: "production",
     });
+  });
+
+  it("leva o ambiente do rascunho (sandbox) para a função SQL", () => {
+    expect(orderDraftToRpc({ ...draft, environment: "sandbox" }).environment).toBe("sandbox");
   });
 });
 
@@ -108,6 +113,7 @@ describe("leituras", () => {
       number: 7,
       access_token: "t",
       status: "shipped",
+      environment: "sandbox",
       customer_name: "Maria",
       customer_email: "maria@exemplo.com",
       customer_phone: "85999998888",
@@ -154,6 +160,7 @@ describe("leituras", () => {
       id: "o1",
       number: 7,
       status: "shipped",
+      environment: "sandbox",
       checkoutId: "chk",
       trackingCode: "BR1",
       paidAt: "2026-10-22T10:05:00Z",
@@ -203,11 +210,19 @@ describe("taxas", () => {
 
 describe("readOrdersSecret", () => {
   it("devolve o segredo configurado", () => {
-    expect(readOrdersSecret({ ORDERS_RPC_SECRET: "abc" })).toBe("abc");
+    const secret = "s".repeat(32);
+    expect(readOrdersSecret({ ORDERS_RPC_SECRET: ` ${secret} ` })).toBe(secret);
   });
 
   it("sem segredo, lança um erro claro que cita só o NOME da variável", () => {
     expect(() => readOrdersSecret({})).toThrow("ORDERS_RPC_SECRET");
     expect(() => readOrdersSecret({ ORDERS_RPC_SECRET: "  " })).toThrow("ORDERS_RPC_SECRET");
+  });
+});
+
+describe("readOrdersSecret: tamanho mínimo", () => {
+  it("segredo com menos de 32 caracteres é recusado (a única proteção do 'marcar como pago')", () => {
+    expect(() => readOrdersSecret({ ORDERS_RPC_SECRET: "s".repeat(31) })).toThrow("ORDERS_RPC_SECRET");
+    expect(() => readOrdersSecret({ ORDERS_RPC_SECRET: "s".repeat(32) })).not.toThrow();
   });
 });

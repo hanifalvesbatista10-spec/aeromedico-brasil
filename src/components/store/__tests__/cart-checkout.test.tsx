@@ -23,7 +23,7 @@ const shipping: ShippingSelection = {
 const options = [
   { method: "pix", label: "Pix", feeCents: 199, totalCents: 6544, installments: null, installmentCents: null },
   { method: "card_single", label: "Cartão à vista", feeCents: 247, totalCents: 6592, installments: null, installmentCents: null },
-  { method: "card_installments", label: "Cartão em até 6x", feeCents: 281, totalCents: 6626, installments: 6, installmentCents: 1105 },
+  { method: "card_installments", label: "Cartão parcelado em até 6x", feeCents: 281, totalCents: 6626, installments: 6, installmentCents: 1105 },
 ];
 
 const quoteOk = {
@@ -54,7 +54,7 @@ afterEach(cleanup);
 
 function renderCheckout(props: Partial<{ couponCode: string | null }> = {}) {
   return render(
-    <CartCheckout lines={lines} couponCode={props.couponCode ?? null} shipping={shipping} onAnnounce={vi.fn()} />
+    <CartCheckout lines={lines} couponCode={props.couponCode ?? null} shipping={shipping} />
   );
 }
 
@@ -91,9 +91,11 @@ describe("CartCheckout: formas de pagamento", () => {
     });
 
     const text = plain(group.textContent);
-    expect(text).toContain("Pix · R$ 65,44 (taxa de R$ 1,99)");
-    expect(text).toContain("Cartão à vista · R$ 65,92 (taxa de R$ 2,47)");
-    expect(text).toContain("Cartão em até 6x · R$ 66,26 (taxa de R$ 2,81) · 6x de R$ 11,05");
+    expect(text).toContain("Pix: R$ 65,44 (inclui R$ 1,99 de taxa de pagamento)");
+    expect(text).toContain("Cartão à vista: R$ 65,92 (inclui R$ 2,47 de taxa de pagamento)");
+    expect(text).toContain(
+      "Cartão parcelado em até 6x: 6x de R$ 11,05, total de R$ 66,26 (inclui R$ 2,81 de taxa de pagamento)"
+    );
   });
 
   it("o cupom aceito vai junto na cotação", async () => {
@@ -132,7 +134,7 @@ describe("CartCheckout: formas de pagamento", () => {
 describe("CartCheckout: dados do comprador", () => {
   it("o CEP vem da cotação do frete, formatado e travado", async () => {
     await ready();
-    const cep = screen.getByLabelText("CEP") as HTMLInputElement;
+    const cep = screen.getByLabelText("CEP (o mesmo do cálculo do frete)") as HTMLInputElement;
     expect(cep.value).toBe("01018-020");
     expect(cep.readOnly).toBe(true);
   });
@@ -269,14 +271,56 @@ describe("CartCheckout: acessibilidade", () => {
     expect(pay.className).toContain("focus-visible:outline-navy-700");
     expect(screen.getByLabelText("Nome completo").className).toContain("focus-visible:outline-navy-700");
   });
+});
 
-  it("muda de forma de pagamento e anuncia o total", async () => {
-    const onAnnounce = vi.fn();
-    render(<CartCheckout lines={lines} couponCode={null} shipping={shipping} onAnnounce={onAnnounce} />);
-    const group = await screen.findByRole("group", { name: "Forma de pagamento" });
+describe("CartCheckout: ajustes da revisão", () => {
+  it("voltar do Asaas pelo botão do navegador (página restaurada do cache) destrava o botão Pagar", async () => {
+    placeOrderAction.mockResolvedValue({ ok: true, checkoutUrl: "https://asaas.com/checkout/chk_1" });
+    await ready();
+    fillBuyer();
+    fireEvent.click(screen.getByRole("button", { name: "Pagar" }));
+    const busy = await screen.findByRole("button", { name: "Abrindo o pagamento…" });
+    expect(busy.getAttribute("aria-disabled")).toBe("true");
+
     act(() => {
-      fireEvent.click(within(group).getAllByRole("radio")[2]);
+      const event = new Event("pageshow") as Event & { persisted: boolean };
+      event.persisted = true;
+      window.dispatchEvent(event);
     });
-    expect(plain(onAnnounce.mock.calls.at(-1)?.[0])).toBe("Cartão em até 6x selecionado: total R$ 66,26.");
+
+    expect(screen.getByRole("button", { name: "Pagar" }).getAttribute("aria-disabled")).not.toBe("true");
+  });
+
+  it("Pagar antes de as formas carregarem: avisa em alerta e o botão fica aria-disabled", async () => {
+    quoteCheckoutAction.mockImplementation(() => new Promise(() => {}));
+    renderCheckout();
+    const button = screen.getByRole("button", { name: "Pagar" });
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+
+    fireEvent.click(button);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Aguarde o cálculo das formas de pagamento.");
+    expect(placeOrderAction).not.toHaveBeenCalled();
+  });
+
+  it("o mesmo erro repetido é anunciado de novo (o alerta é recriado)", async () => {
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Pagar" }));
+    const first = await screen.findByRole("alert");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pagar" }));
+
+    const second = await screen.findByRole("alert");
+    expect(second.textContent).toBe(first.textContent);
+    expect(second).not.toBe(first);
+  });
+
+  it("os campos de contato e entrega formam um grupo nomeado e o CEP explica por que não edita", async () => {
+    await ready();
+    const group = screen.getByRole("group", { name: "Contato e entrega" });
+    expect(group.tagName).toBe("FIELDSET");
+    const cep = screen.getByLabelText("CEP (o mesmo do cálculo do frete)") as HTMLInputElement;
+    expect(cep.getAttribute("autocomplete")).toBe("postal-code");
+    expect(group.contains(cep)).toBe(true);
   });
 });

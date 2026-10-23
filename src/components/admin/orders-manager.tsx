@@ -20,13 +20,29 @@ type Filter = "all" | OrderStatus;
 
 const STATUSES = Object.keys(ORDER_STATUS_LABELS) as OrderStatus[];
 
-function StatusBadge({ status }: { status: OrderStatus }) {
+function StatusBadges({ order }: { order: StoreOrder }) {
   const variant =
-    status === "paid_review" ? "destructive" : status === "paid" ? "default" : "secondary";
-  return <Badge variant={variant}>{ORDER_STATUS_LABELS[status]}</Badge>;
+    order.status === "paid_review" ? "destructive" : order.status === "paid" ? "default" : "secondary";
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <Badge variant={variant}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+      {order.environment === "sandbox" && <Badge variant="outline">Teste (sandbox)</Badge>}
+    </span>
+  );
 }
 
-export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }) {
+function countText(count: number): string {
+  return `${count} ${count === 1 ? "pedido" : "pedidos"} na lista.`;
+}
+
+export function OrdersManager({
+  initialOrders,
+  showingLatest,
+}: {
+  initialOrders: StoreOrder[];
+  /** Quando a lista foi cortada nos pedidos mais recentes: quantos são mostrados. */
+  showingLatest?: number;
+}) {
   const [orders, setOrders] = useState(initialOrders);
   const [filter, setFilter] = useState<Filter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -40,6 +56,12 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
   function handleChanged(updated: StoreOrder, text: string) {
     setOrders((current) => current.map((order) => (order.id === updated.id ? updated : order)));
     setAnnouncement(text);
+  }
+
+  function handleFilter(value: Filter) {
+    setFilter(value);
+    const count = value === "all" ? orders.length : orders.filter((order) => order.status === value).length;
+    setAnnouncement(countText(count));
   }
 
   const columns: DataTableColumn<StoreOrder>[] = [
@@ -56,7 +78,7 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
     { key: "buyer", header: "Comprador", render: (o) => o.customer.name },
     { key: "total", header: "Total", render: (o) => formatBRL(o.totalCents) },
     { key: "method", header: "Forma", render: (o) => PAYMENT_METHOD_LABELS[o.paymentMethod] },
-    { key: "status", header: "Situação", render: (o) => <StatusBadge status={o.status} /> },
+    { key: "status", header: "Situação", render: (o) => <StatusBadges order={o} /> },
   ];
 
   return (
@@ -67,7 +89,7 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
             Pedidos
           </h2>
           <p className="text-sm text-gray-600">
-            Pedidos pagos pelo site. O andamento (separação, envio e entrega) é você quem marca.
+            Pedidos feitos pelo site. Você marca a separação, o envio e a entrega.
           </p>
         </div>
         {orders.length > 0 && (
@@ -75,9 +97,9 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
             <Label htmlFor="orders-filter">Filtrar por situação</Label>
             <select
               id="orders-filter"
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm"
+              className="h-8 w-full rounded-md border border-border bg-background px-2 text-base md:text-sm"
               value={filter}
-              onChange={(e) => setFilter(e.target.value as Filter)}
+              onChange={(e) => handleFilter(e.target.value as Filter)}
             >
               <option value="all">Todos</option>
               {STATUSES.map((status) => (
@@ -93,6 +115,10 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
       <p data-testid="orders-announcer" role="status" className="sr-only">
         {announcement}
       </p>
+
+      {showingLatest !== undefined && (
+        <p className="text-sm text-gray-600">{`Mostrando os ${showingLatest} pedidos mais recentes.`}</p>
+      )}
 
       {reviewCount > 0 && (
         <p
@@ -114,7 +140,7 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
           orders.length === 0 ? (
             <EmptyState
               title="Nenhum pedido ainda."
-              description="Os pedidos pagos pelo site aparecem aqui."
+              description="Os pedidos feitos pelo site aparecem aqui."
             />
           ) : (
             <EmptyState
@@ -128,7 +154,7 @@ export function OrdersManager({ initialOrders }: { initialOrders: StoreOrder[] }
             variant="outline"
             size="sm"
             onClick={() => setOpenId(o.id)}
-            aria-label={`Ver pedido ${orderCode(o.number)}`}
+            aria-label={`Ver detalhes do pedido ${orderCode(o.number)}`}
           >
             Ver detalhes
           </Button>

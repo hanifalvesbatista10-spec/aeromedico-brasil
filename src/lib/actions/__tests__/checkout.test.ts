@@ -63,6 +63,7 @@ const cap: StoreProductDetail = {
 };
 
 const PAC = { id: "1", name: "PAC", company: "Correios", priceCents: 2345, deliveryDays: 6 };
+const SECRET = "s".repeat(64);
 const asaasConfig = { apiKey: "chave", environment: "sandbox", webhookToken: "w".repeat(40) };
 
 const buyer = {
@@ -92,7 +93,7 @@ function selection(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   unstableRethrow.mockReset();
-  vi.stubEnv("ORDERS_RPC_SECRET", "segredo-do-servidor");
+  vi.stubEnv("ORDERS_RPC_SECRET", SECRET);
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://aeromedico.exemplo.com.br");
   listProductDetails.mockResolvedValue([cap]);
   listCategories.mockResolvedValue([]);
@@ -195,6 +196,7 @@ describe("placeOrderAction: caminho feliz", () => {
       feeCents: 199,
       totalCents: 6544,
       paymentMethod: "pix",
+      environment: "sandbox",
     });
 
     expect(createAsaasCheckout).toHaveBeenCalledWith(
@@ -226,7 +228,7 @@ describe("placeOrderAction: falhas depois de criar o pedido", () => {
       expect(result).toEqual({
         ok: false,
         code: "unavailable",
-        error: "Não foi possível abrir o pagamento agora. Tente de novo.",
+        error: "Não conseguimos abrir o pagamento agora. Nenhuma cobrança foi feita. Tente de novo em instantes.",
       });
       expect(cancelPending).toHaveBeenCalledWith("ord-1");
       expect(attachCheckout).not.toHaveBeenCalled();
@@ -239,7 +241,7 @@ describe("placeOrderAction: falhas depois de criar o pedido", () => {
     expect(result).toEqual({
       ok: false,
       code: "unavailable",
-      error: "Não foi possível abrir o pagamento agora. Tente de novo.",
+      error: "Não conseguimos abrir o pagamento agora. Nenhuma cobrança foi feita. Tente de novo em instantes.",
     });
     expect(cancelPending).toHaveBeenCalledWith("ord-1");
   });
@@ -287,8 +289,37 @@ describe("quoteCheckoutAction", () => {
 // Restaura os mocks padrão entre as variações do primeiro teste (que desliga uma peça por vez).
 function beforeEachReset() {
   vi.clearAllMocks();
-  vi.stubEnv("ORDERS_RPC_SECRET", "segredo-do-servidor");
+  vi.stubEnv("ORDERS_RPC_SECRET", SECRET);
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://aeromedico.exemplo.com.br");
   getShippingProvider.mockReturnValue({ quote: (input: unknown) => quote(input) });
   getAsaasConfig.mockReturnValue(asaasConfig);
 }
+
+describe("placeOrderAction: CEP da entrega", () => {
+  it("CEP de entrega diferente do CEP cotado no frete: recusa e nada é criado", async () => {
+    const result = await placeOrderAction(selection(), { ...buyer, cep: "69900-000" });
+    expect(result).toEqual({
+      ok: false,
+      code: "invalid-buyer",
+      error: "O CEP da entrega deve ser o mesmo do cálculo do frete.",
+    });
+    expect(create).not.toHaveBeenCalled();
+    expect(createAsaasCheckout).not.toHaveBeenCalled();
+  });
+
+  it("o mesmo CEP, com ou sem hífen, passa", async () => {
+    const result = await placeOrderAction(selection(), { ...buyer, cep: "01018020" });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("placeOrderAction: ambiente do pedido", () => {
+  it("o pedido é gravado com o ambiente do Asaas configurado (sandbox ou produção)", async () => {
+    await placeOrderAction(selection(), buyer);
+    expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ environment: "sandbox" }));
+
+    getAsaasConfig.mockReturnValue({ ...asaasConfig, environment: "production" });
+    await placeOrderAction(selection(), buyer);
+    expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ environment: "production" }));
+  });
+});

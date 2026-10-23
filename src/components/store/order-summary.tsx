@@ -8,12 +8,13 @@ import type { OrderStatus, PublicOrder } from "@/lib/types";
 const STATUS_LABELS: Record<OrderStatus, string> = {
   awaiting_payment: "Aguardando pagamento",
   paid: "Pagamento confirmado",
-  paid_review: "Pagamento confirmado. Estamos conferindo o seu pedido e entraremos em contato.",
+  paid_review:
+    "Pagamento confirmado. Estamos conferindo a disponibilidade dos itens e vamos falar com você pelo e-mail ou telefone informado.",
   preparing: "Em separação",
   shipped: "Enviado",
   delivered: "Entregue",
-  canceled: "Cancelado",
-  expired: "Expirado",
+  canceled: "Pedido cancelado",
+  expired: "Pedido expirado: o prazo para pagar terminou.",
 };
 
 const METHOD_LABELS: Record<PublicOrder["paymentMethod"], string> = {
@@ -68,10 +69,14 @@ export function OrderSummary({
 
       {waiting && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p>Assim que o pagamento for confirmado, o status muda aqui. Toque em Atualizar para conferir.</p>
+          <p>
+            Assim que o pagamento for confirmado, o status muda aqui. Se você já pagou, use o botão
+            Atualizar para conferir. Guarde o endereço desta página para acompanhar o pedido.
+          </p>
           {refreshHref && (
             <Link
               href={refreshHref}
+              prefetch={false}
               className={cn(buttonVariants({ variant: "outline" }), "mt-3 h-11")}
             >
               Atualizar
@@ -103,7 +108,7 @@ export function OrderSummary({
         )}
         <Row label="Frete" value={formatBRL(order.shippingCents)} />
         {order.feeCents > 0 && (
-          <Row label="Taxa do meio de pagamento" value={formatBRL(order.feeCents)} />
+          <Row label="Taxa de pagamento" value={formatBRL(order.feeCents)} />
         )}
         <Row label="Total" value={formatBRL(order.totalCents)} strong />
       </dl>

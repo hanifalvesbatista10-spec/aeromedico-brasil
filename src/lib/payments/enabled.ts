@@ -1,3 +1,4 @@
+import { usableOrdersSecret } from "@/lib/orders/secret";
 import { getShippingProvider } from "@/lib/shipping/config";
 import { getAsaasConfig } from "./asaas";
 
@@ -10,7 +11,7 @@ export function isCheckoutEnabled(): boolean {
   return (
     getAsaasConfig() !== null &&
     getShippingProvider() !== null &&
-    Boolean(process.env.ORDERS_RPC_SECRET?.trim()) &&
+    usableOrdersSecret(process.env.ORDERS_RPC_SECRET) !== null &&
     Boolean(process.env.NEXT_PUBLIC_SITE_URL?.trim())
   );
 }

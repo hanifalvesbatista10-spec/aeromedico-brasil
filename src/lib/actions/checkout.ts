@@ -20,7 +20,10 @@ import type { OrderDraft } from "@/lib/types";
 
 const DISABLED = "O pagamento pelo site ainda não está disponível. Finalize pelo WhatsApp.";
 const QUOTE_UNAVAILABLE = "Não foi possível calcular o pagamento agora. Tente de novo.";
-const CHECKOUT_UNAVAILABLE = "Não foi possível abrir o pagamento agora. Tente de novo.";
+// Nunca é dito ao comprador que o pagamento foi cobrado: o link só é entregue depois de o
+// pedido estar vinculado ao checkout, então nesta mensagem nada foi cobrado.
+const CHECKOUT_UNAVAILABLE =
+  "Não conseguimos abrir o pagamento agora. Nenhuma cobrança foi feita. Tente de novo em instantes.";
 
 type QuoteFailure = Extract<CheckoutQuote, { ok: false }>;
 
@@ -95,7 +98,7 @@ export async function placeOrderAction(
     const quote: QuoteFailure = {
       ok: false,
       code: "invalid-input",
-      error: "Não foi possível ler os dados do pedido.",
+      error: "Algo deu errado com os dados do pedido. Atualize a página e tente de novo.",
     };
     return fail("quote", quote.error, quote);
   }
@@ -105,6 +108,12 @@ export async function placeOrderAction(
     return quote.code === "unavailable"
       ? fail("unavailable", quote.error)
       : fail("quote", quote.error, quote);
+  }
+
+  // O frete foi cotado para um CEP; a entrega precisa ser nesse mesmo CEP, senão
+  // dava para pagar o frete de um lugar e receber em outro.
+  if (buyer.data.address.cep !== quote.shipping.cep) {
+    return fail("invalid-buyer", "O CEP da entrega deve ser o mesmo do cálculo do frete.");
   }
 
   const draft: OrderDraft = {
@@ -122,6 +131,7 @@ export async function placeOrderAction(
     feeCents: quote.chosen.feeCents,
     totalCents: quote.chosen.totalCents,
     paymentMethod: quote.chosen.method,
+    environment: getAsaasConfig()?.environment ?? "production",
   };
 
   const orders = getRepositories().orders;

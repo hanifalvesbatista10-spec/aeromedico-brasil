@@ -5,7 +5,11 @@ import type { PaymentSettingsRepository } from "../types";
 import { paymentFeesFromRow, paymentFeesToRow } from "./orders-mapping";
 
 // Registro único. Se a tabela ainda não existe (migration não aplicada), o
-// carrinho segue com os valores padrão em vez de quebrar.
+// carrinho segue com os valores padrão em vez de quebrar. Qualquer OUTRA falha é
+// lançada: usar a taxa padrão em silêncio cobraria um valor diferente do contrato
+// e, no painel, o dono poderia salvar por cima da configuração real.
+const MISSING_TABLE_CODES = ["42P01", "PGRST205"];
+
 export function createSupabasePaymentSettingsRepository(): PaymentSettingsRepository {
   return {
     async get() {
@@ -15,7 +19,10 @@ export function createSupabasePaymentSettingsRepository(): PaymentSettingsReposi
         .select("*")
         .eq("id", true)
         .maybeSingle();
-      if (error) return paymentFeesFromRow(null);
+      if (error) {
+        if (error.code && MISSING_TABLE_CODES.includes(error.code)) return paymentFeesFromRow(null);
+        throw new Error("Falha ao ler as taxas de pagamento.");
+      }
       return paymentFeesFromRow(data as StorePaymentSettingsRow | null);
     },
 

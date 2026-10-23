@@ -26,10 +26,10 @@ export async function updateOrderFulfillment(
 
   try {
     const orders = getRepositories().orders;
-    const current = (await orders.list()).find((order) => order.id === id);
+    const current = await orders.getById(id);
     if (!current) return { ok: false, error: "Pedido não encontrado." };
 
-    const checked = checkFulfillmentChange(current.status, change);
+    const checked = checkFulfillmentChange(current, change);
     if (!checked.ok) return checked;
 
     const saved = await orders.updateFulfillment(id, checked.patch);
@@ -47,7 +47,7 @@ export async function savePaymentFees(input: PaymentFeesForm): Promise<ActionRes
 
   const parsed = paymentFeesSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Confira os valores digitados." };
   }
 
   try {

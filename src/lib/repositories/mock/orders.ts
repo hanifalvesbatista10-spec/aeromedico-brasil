@@ -1,5 +1,5 @@
 import type { OrderDraft, OrderStatus, PublicOrder, StoreOrder } from "@/lib/types";
-import type { ApplyEventResult, OrderRepository } from "../types";
+import { ADMIN_ORDERS_LIMIT, type ApplyEventResult, type OrderRepository } from "../types";
 
 export interface MockOrderRepository extends OrderRepository {
   /** Estado que o banco alteraria: estoque por variação e usos por cupom. */
@@ -51,6 +51,7 @@ export function createMockOrderRepository(
         id,
         number: counter,
         status: "awaiting_payment",
+        environment: draft.environment ?? "production",
         checkoutId: null,
         trackingCode: null,
         notes: null,
@@ -83,6 +84,12 @@ export function createMockOrderRepository(
       if (!order) return "ignored";
 
       if (event.type === "CHECKOUT_PAID") {
+        // Pago depois de cancelado: o dinheiro entrou, então o dono precisa ver (nada é baixado).
+        if (order.status === "canceled") {
+          order.status = "paid_review";
+          order.paidAt = new Date().toISOString();
+          return "paid_review";
+        }
         if (order.status !== "awaiting_payment" && order.status !== "expired") return "ignored";
         const needed = lineTotals(order);
         const enough = [...needed].every(([variantId, quantity]) => {
@@ -98,9 +105,11 @@ export function createMockOrderRepository(
           const available = stock[variantId];
           if (available !== undefined && available !== null) stock[variantId] = available - quantity;
         }
-        if (order.couponCode && order.couponCode in couponUses) {
-          couponUses[order.couponCode] += 1;
-        }
+        // Como o SQL: o código do cupom não diferencia maiúsculas.
+        const couponKey = order.couponCode
+          ? Object.keys(couponUses).find((key) => key.toUpperCase() === order.couponCode!.toUpperCase())
+          : undefined;
+        if (couponKey !== undefined) couponUses[couponKey] += 1;
         order.status = "paid";
         return "paid";
       }
@@ -142,7 +151,12 @@ export function createMockOrderRepository(
     },
 
     async list() {
-      return orders.map(copy);
+      return orders.slice(0, ADMIN_ORDERS_LIMIT).map(copy);
+    },
+
+    async getById(id) {
+      const order = find(id);
+      return order ? copy(order) : null;
     },
 
     async updateFulfillment(id, patch) {

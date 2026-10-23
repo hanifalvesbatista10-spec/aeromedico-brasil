@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { fontHeading, fontBody } from "@/lib/fonts";
+import { AnalyticsGate } from "@/components/analytics-gate";
 import { AnalyticsScripts } from "@/components/analytics-scripts";
 import "./globals.css";
 
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <AnalyticsScripts />
+        <AnalyticsGate>
+          <AnalyticsScripts />
+        </AnalyticsGate>
       </body>
     </html>
   );

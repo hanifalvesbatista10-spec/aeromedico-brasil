@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { StoreOrderItemRow, StoreOrderRow } from "@/lib/supabase/types";
-import type { ApplyEventResult, OrderRepository } from "../types";
+import { ADMIN_ORDERS_LIMIT, type ApplyEventResult, type OrderRepository } from "../types";
 import {
   orderDraftToRpc,
   orderFulfillmentPatchToRow,
@@ -73,7 +73,8 @@ export function createSupabaseOrderRepository(): OrderRepository {
         p_order_id: orderId,
         p_token: token,
       });
-      if (error) return null;
+      // Falha do banco NÃO é "pedido não existe": a página mostra "não foi possível carregar".
+      if (error) throw new Error("Falha ao ler o pedido.");
       return publicOrderFromJson(data);
     },
 
@@ -82,9 +83,24 @@ export function createSupabaseOrderRepository(): OrderRepository {
       const { data, error } = await supabase
         .from("store_orders")
         .select("*, store_order_items(*)")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(ADMIN_ORDERS_LIMIT);
       if (error) throw new Error(`Falha ao carregar pedidos: ${error.message}`);
       return (data as OrderWithItems[]).map((row) => orderRowToDomain(row, row.store_order_items));
+    },
+
+    async getById(id) {
+      if (!UUID.test(id)) return null;
+      const supabase = await createServerSupabaseClient();
+      const { data, error } = await supabase
+        .from("store_orders")
+        .select("*, store_order_items(*)")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(`Falha ao carregar o pedido: ${error.message}`);
+      if (!data) return null;
+      const order = data as OrderWithItems;
+      return orderRowToDomain(order, order.store_order_items);
     },
 
     async updateFulfillment(id, patch) {

@@ -34,10 +34,11 @@ const emptyForm = {
 };
 
 function optionText(option: PaymentOption): string {
-  const base = `${option.label} · ${formatBRL(option.totalCents)} (taxa de ${formatBRL(option.feeCents)})`;
-  return option.installments && option.installmentCents
-    ? `${base} · ${option.installments}x de ${formatBRL(option.installmentCents)}`
-    : base;
+  const fee = option.feeCents > 0 ? ` (inclui ${formatBRL(option.feeCents)} de taxa de pagamento)` : "";
+  if (option.installments && option.installmentCents) {
+    return `${option.label}: ${option.installments}x de ${formatBRL(option.installmentCents)}, total de ${formatBRL(option.totalCents)}${fee}`;
+  }
+  return `${option.label}: ${formatBRL(option.totalCents)}${fee}`;
 }
 
 /**
@@ -51,23 +52,25 @@ export function CartCheckout({
   lines,
   couponCode,
   shipping,
-  onAnnounce,
 }: {
   lines: CartLine[];
   couponCode: string | null;
   shipping: ShippingSelection;
-  onAnnounce: (text: string) => void;
 }) {
   const [quote, setQuote] = useState<QuoteState>({ status: "loading" });
   const [method, setMethod] = useState<PaymentMethod>("pix");
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  // Cada aviso tem um `id`: o mesmo texto repetido remonta o alerta e é anunciado de novo.
+  const [notice, setNotice] = useState<{ text: string; id: number } | null>(null);
   // Preço do frete que o servidor acabou de informar para ESTA escolha de frete
   // (substitui o que o cliente viu; some sozinho quando a escolha muda).
   const [shippingOverride, setShippingOverride] = useState<{ key: string; cents: number } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const latestRequest = useRef(0);
+  const noticeCount = useRef(0);
+  // Trava de duplo envio que não depende de uma renderização (dois cliques seguidos).
+  const sendingRef = useRef(false);
 
   const signature = serializeCart(lines);
   const shippingKey = `${shipping.optionId}|${shipping.cep}|${shipping.priceCents}`;
@@ -75,6 +78,11 @@ export function CartCheckout({
     shippingOverride && shippingOverride.key === shippingKey
       ? shippingOverride.cents
       : shipping.priceCents;
+
+  function showNotice(text: string) {
+    noticeCount.current += 1;
+    setNotice({ text, id: noticeCount.current });
+  }
 
   useEffect(() => {
     const request = ++latestRequest.current;
@@ -89,8 +97,12 @@ export function CartCheckout({
         if (request !== latestRequest.current) return;
         if (result.ok) {
           setQuote({ status: "ready", options: result.options });
+          // A forma escolhida pode ter deixado de existir (ex.: parcelamento desligado).
+          setMethod((current) =>
+            result.options.some((option) => option.method === current) ? current : "pix"
+          );
         } else if (result.code === "shipping-changed" && result.newShippingCents !== undefined) {
-          setNotice(result.error);
+          showNotice(result.error);
           setShippingOverride({ key: shippingKey, cents: result.newShippingCents });
         } else {
           setQuote({ status: "error", message: result.error });
@@ -107,13 +119,21 @@ export function CartCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, couponCode, shipping.optionId, shipping.cep, expectedShippingCents, attempt]);
 
+  // Voltar do checkout do Asaas pelo botão do navegador pode devolver esta página
+  // do cache já com "Abrindo o pagamento…": sem isto o botão ficaria travado.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        sendingRef.current = false;
+        setSending(false);
+      }
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const chosen =
     quote.status === "ready" ? quote.options.find((option) => option.method === method) : undefined;
-
-  function choose(option: PaymentOption) {
-    setMethod(option.method);
-    onAnnounce(`${option.label} selecionado: total ${formatBRL(option.totalCents)}.`);
-  }
 
   function field(key: keyof typeof emptyForm) {
     return {
@@ -124,15 +144,24 @@ export function CartCheckout({
   }
 
   async function pay() {
-    if (sending || !chosen) return;
+    if (sendingRef.current) return;
+    if (!chosen) {
+      showNotice(
+        quote.status === "error"
+          ? "As formas de pagamento não carregaram. Use o botão Tentar de novo."
+          : "Aguarde o cálculo das formas de pagamento."
+      );
+      return;
+    }
 
     const buyer = { ...form, cep: shipping.cep };
     const parsed = buyerSchema.safeParse(buyer);
     if (!parsed.success) {
-      setNotice(parsed.error.issues[0]?.message ?? "Confira os dados informados.");
+      showNotice(parsed.error.issues[0]?.message ?? "Confira os dados informados.");
       return;
     }
 
+    sendingRef.current = true;
     setSending(true);
     setNotice(null);
     try {
@@ -151,15 +180,16 @@ export function CartCheckout({
         window.location.assign(result.checkoutUrl);
         return;
       }
-      setNotice(result.error);
+      showNotice(result.error);
       if (result.quote?.code === "shipping-changed" && result.quote.newShippingCents !== undefined) {
         setShippingOverride({ key: shippingKey, cents: result.quote.newShippingCents });
       } else if (result.quote?.code === "price-changed") {
         setAttempt((n) => n + 1);
       }
     } catch {
-      setNotice("Não foi possível abrir o pagamento agora. Tente de novo.");
+      showNotice("Não conseguimos abrir o pagamento agora. Tente de novo em instantes.");
     }
+    sendingRef.current = false;
     setSending(false);
   }
 
@@ -198,7 +228,7 @@ export function CartCheckout({
                 name="payment-method"
                 className="mt-1 size-4"
                 checked={method === option.method}
-                onChange={() => choose(option)}
+                onChange={() => setMethod(option.method)}
               />
               <span>{optionText(option)}</span>
             </label>
@@ -214,93 +244,96 @@ export function CartCheckout({
         }}
         className="space-y-3"
       >
-        <p className="text-sm font-medium text-navy-950">Contato e entrega</p>
+        <fieldset className="min-w-0 space-y-3">
+          <legend className="mb-1 text-sm font-medium text-navy-950">Contato e entrega</legend>
 
-        <div className="space-y-1">
-          <Label htmlFor="buyer-name">Nome completo</Label>
-          <Input id="buyer-name" autoComplete="name" className={cn("h-11", focusRing)} {...field("name")} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="buyer-email">E-mail</Label>
-          <Input
-            id="buyer-email"
-            type="email"
-            autoComplete="email"
-            spellCheck={false}
-            className={cn("h-11", focusRing)}
-            {...field("email")}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="buyer-phone">Telefone com DDD</Label>
-          <Input
-            id="buyer-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            className={cn("h-11", focusRing)}
-            {...field("phone")}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="buyer-cep">CEP</Label>
-          <Input
-            id="buyer-cep"
-            readOnly
-            value={formatCep(shipping.cep)}
-            className={cn("h-11 bg-muted", focusRing)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="buyer-street">Rua</Label>
-          <Input
-            id="buyer-street"
-            autoComplete="address-line1"
-            className={cn("h-11", focusRing)}
-            {...field("street")}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label htmlFor="buyer-number">Número</Label>
-            <Input id="buyer-number" className={cn("h-11", focusRing)} {...field("number")} />
+            <Label htmlFor="buyer-name">Nome completo</Label>
+            <Input id="buyer-name" autoComplete="name" className={cn("h-11", focusRing)} {...field("name")} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="buyer-complement">Complemento (opcional)</Label>
+            <Label htmlFor="buyer-email">E-mail</Label>
             <Input
-              id="buyer-complement"
-              autoComplete="address-line2"
+              id="buyer-email"
+              type="email"
+              autoComplete="email"
+              spellCheck={false}
               className={cn("h-11", focusRing)}
-              {...field("complement")}
+              {...field("email")}
             />
           </div>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="buyer-district">Bairro</Label>
-          <Input id="buyer-district" className={cn("h-11", focusRing)} {...field("district")} />
-        </div>
-        <div className="grid grid-cols-[1fr_5rem] gap-3">
           <div className="space-y-1">
-            <Label htmlFor="buyer-city">Cidade</Label>
+            <Label htmlFor="buyer-phone">Telefone com DDD</Label>
             <Input
-              id="buyer-city"
-              autoComplete="address-level2"
+              id="buyer-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               className={cn("h-11", focusRing)}
-              {...field("city")}
+              {...field("phone")}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="buyer-state">Estado (UF)</Label>
+            <Label htmlFor="buyer-cep">CEP (o mesmo do cálculo do frete)</Label>
             <Input
-              id="buyer-state"
-              maxLength={2}
-              autoCapitalize="characters"
-              autoComplete="address-level1"
-              className={cn("h-11 uppercase", focusRing)}
-              {...field("state")}
+              id="buyer-cep"
+              readOnly
+              autoComplete="postal-code"
+              value={formatCep(shipping.cep)}
+              className={cn("h-11 bg-muted", focusRing)}
             />
           </div>
-        </div>
+          <div className="space-y-1">
+            <Label htmlFor="buyer-street">Rua</Label>
+            <Input
+              id="buyer-street"
+              autoComplete="address-line1"
+              className={cn("h-11", focusRing)}
+              {...field("street")}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="buyer-number">Número</Label>
+              <Input id="buyer-number" className={cn("h-11", focusRing)} {...field("number")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="buyer-complement">Complemento (opcional)</Label>
+              <Input
+                id="buyer-complement"
+                autoComplete="address-line2"
+                className={cn("h-11", focusRing)}
+                {...field("complement")}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="buyer-district">Bairro</Label>
+            <Input id="buyer-district" className={cn("h-11", focusRing)} {...field("district")} />
+          </div>
+          <div className="grid grid-cols-[1fr_5rem] gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="buyer-city">Cidade</Label>
+              <Input
+                id="buyer-city"
+                autoComplete="address-level2"
+                className={cn("h-11", focusRing)}
+                {...field("city")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="buyer-state">Estado (UF)</Label>
+              <Input
+                id="buyer-state"
+                maxLength={2}
+                autoCapitalize="characters"
+                autoComplete="address-level1"
+                className={cn("h-11 uppercase", focusRing)}
+                {...field("state")}
+              />
+            </div>
+          </div>
+        </fieldset>
 
         {chosen && (
           <p className="flex items-baseline justify-between border-t border-border pt-3 text-base">
@@ -312,15 +345,15 @@ export function CartCheckout({
         )}
 
         {notice && (
-          <p role="alert" className="text-sm text-red-800">
-            {notice}
+          <p key={notice.id} role="alert" className="text-sm text-red-800">
+            {notice.text}
           </p>
         )}
 
         <Button
           type="submit"
           size="lg"
-          aria-disabled={sending}
+          aria-disabled={sending || !chosen}
           className={cn("h-11 w-full aria-disabled:opacity-60", focusRing)}
         >
           {sending ? "Abrindo o pagamento…" : "Pagar"}

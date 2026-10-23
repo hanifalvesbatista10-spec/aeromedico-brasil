@@ -141,6 +141,9 @@ export type ApplyEventResult =
   | "canceled"
   | "expired";
 
+/** Quantos pedidos o painel carrega (os mais recentes). */
+export const ADMIN_ORDERS_LIMIT = 200;
+
 export interface OrderRepository {
   /** Servidor, protegido por segredo: grava o pedido (e os itens) no banco. */
   create(draft: OrderDraft): Promise<{ id: string; number: number; accessToken: string }>;
@@ -156,8 +159,10 @@ export interface OrderRepository {
   }): Promise<ApplyEventResult>;
   /** Público: resumo do pedido se a chave estiver certa; senão `null` (igual a pedido inexistente). */
   getPublic(orderId: string, token: string): Promise<PublicOrder | null>;
-  /** Administrador (RLS): todos os pedidos, do mais novo ao mais antigo. */
+  /** Administrador (RLS): os `ADMIN_ORDERS_LIMIT` pedidos mais recentes, do mais novo ao mais antigo. */
   list(): Promise<StoreOrder[]>;
+  /** Administrador (RLS): um pedido pelo id, ou `null`. */
+  getById(id: string): Promise<StoreOrder | null>;
   updateFulfillment(
     id: string,
     patch: { status?: OrderStatus; trackingCode?: string | null; notes?: string | null }

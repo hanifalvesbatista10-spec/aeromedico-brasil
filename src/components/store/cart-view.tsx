@@ -472,7 +472,9 @@ export function CartView({
             )}
             {(discountCents > 0 || shipping) && (
               <p className="flex items-baseline justify-between border-t border-border pt-2 text-base">
-                <span className="font-medium text-navy-950">Total</span>
+                <span className="font-medium text-navy-950">
+                  {payOnSite ? "Total sem a taxa do pagamento" : "Total"}
+                </span>
                 <span data-testid="cart-total" className="text-xl font-semibold text-navy-950">
                   {formatBRL(totalCents)}
                 </span>
@@ -552,12 +554,22 @@ export function CartView({
           )}
 
           {payOnSite && shipping ? (
-            <CartCheckout
-              lines={cart.lines}
-              couponCode={checkoutCouponCode}
-              shipping={shipping}
-              onAnnounce={setAnnouncement}
-            />
+            <>
+              <CartCheckout lines={cart.lines} couponCode={checkoutCouponCode} shipping={shipping} />
+              {whatsappHref && (
+                <p className="mt-4 text-sm text-gray-600">
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(textAction, "px-0")}
+                  >
+                    Prefere finalizar pelo WhatsApp?
+                    <span className="sr-only"> (abre em nova aba)</span>
+                  </a>
+                </p>
+              )}
+            </>
           ) : (
             <>
               <p className="mt-3 text-sm text-gray-600">

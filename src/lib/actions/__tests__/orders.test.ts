@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { StoreOrder } from "@/lib/types";
 
 const requireAdmin = vi.fn();
-const list = vi.fn();
+const getById = vi.fn();
 const updateFulfillment = vi.fn();
 const update = vi.fn();
 const revalidatePath = vi.fn();
@@ -10,7 +10,7 @@ const revalidatePath = vi.fn();
 vi.mock("@/lib/auth/admin-guard", () => ({ requireAdmin: () => requireAdmin() }));
 vi.mock("@/lib/repositories", () => ({
   getRepositories: () => ({
-    orders: { list, updateFulfillment },
+    orders: { getById, updateFulfillment },
     paymentSettings: { update },
   }),
 }));
@@ -25,6 +25,7 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
     id: "o1",
     number: 1,
     status: "paid",
+    environment: "production",
     checkoutId: "chk_1",
     trackingCode: null,
     notes: null,
@@ -52,10 +53,14 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
   };
 }
 
+function stored(current: StoreOrder | null) {
+  getById.mockImplementation(async (id: string) => (current && current.id === id ? current : null));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   requireAdmin.mockResolvedValue(undefined);
-  list.mockResolvedValue([order()]);
+  stored(order());
   updateFulfillment.mockImplementation(async (id: string, patch: object) => order({ id, ...patch }));
   update.mockImplementation(async (fees: unknown) => fees);
 });
@@ -64,35 +69,43 @@ describe("updateOrderFulfillment", () => {
   it("sem administrador: rejeita e não toca no repositório", async () => {
     requireAdmin.mockRejectedValue(new Error("Sessão administrativa não encontrada."));
     await expect(updateOrderFulfillment("o1", { status: "preparing" })).rejects.toThrow("Sessão administrativa");
-    expect(list).not.toHaveBeenCalled();
+    expect(getById).not.toHaveBeenCalled();
     expect(updateFulfillment).not.toHaveBeenCalled();
   });
 
-  it("grava a transição coerente e atualiza a lista de pedidos", async () => {
+  it("busca só o pedido pedido (não a lista inteira) e grava a transição coerente", async () => {
     const result = await updateOrderFulfillment("o1", { status: "preparing" });
+    expect(getById).toHaveBeenCalledWith("o1");
     expect(updateFulfillment).toHaveBeenCalledWith("o1", { status: "preparing" });
     expect(result).toMatchObject({ ok: true, data: { id: "o1", status: "preparing" } });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/pedidos");
   });
 
   it("transição inválida (entregue → separação) volta como valor e nada é gravado", async () => {
-    list.mockResolvedValue([order({ status: "delivered" })]);
+    stored(order({ status: "delivered" }));
     const result = await updateOrderFulfillment("o1", { status: "preparing" });
     expect(result.ok).toBe(false);
     expect(updateFulfillment).not.toHaveBeenCalled();
   });
 
   it("enviado sem código de rastreio é recusado", async () => {
-    list.mockResolvedValue([order({ status: "preparing" })]);
+    stored(order({ status: "preparing" }));
     const result = await updateOrderFulfillment("o1", { status: "shipped" });
     expect(result).toEqual({ ok: false, error: "Informe o código de rastreio para marcar como enviado." });
     expect(updateFulfillment).not.toHaveBeenCalled();
   });
 
   it("enviado com código grava o código normalizado", async () => {
-    list.mockResolvedValue([order({ status: "preparing" })]);
+    stored(order({ status: "preparing" }));
     await updateOrderFulfillment("o1", { status: "shipped", trackingCode: "aa123456789br" });
     expect(updateFulfillment).toHaveBeenCalledWith("o1", { status: "shipped", trackingCode: "AA123456789BR" });
+  });
+
+  it("pedido órfão (aguardando pagamento, sem checkout) pode ser cancelado", async () => {
+    stored(order({ status: "awaiting_payment", checkoutId: null }));
+    const result = await updateOrderFulfillment("o1", { status: "canceled" });
+    expect(result.ok).toBe(true);
+    expect(updateFulfillment).toHaveBeenCalledWith("o1", { status: "canceled" });
   });
 
   it("pedido que não existe mais", async () => {

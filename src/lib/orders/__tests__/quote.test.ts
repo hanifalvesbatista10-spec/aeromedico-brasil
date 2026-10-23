@@ -227,7 +227,7 @@ describe("computeCheckoutQuote: frete refeito no servidor", () => {
     const result = await computeCheckoutQuote(selection(), deps);
     expect(result).toMatchObject({ ok: false, code: "shipping-changed", newShippingCents: 2500 });
     expect(!result.ok && result.error.replace(/ /g, " ")).toBe(
-      "O valor do frete mudou para R$ 25,00. Confira e confirme de novo."
+      "O frete mudou para R$ 25,00. Confira o novo total e clique em Pagar de novo."
     );
   });
 });
@@ -267,7 +267,7 @@ describe("computeCheckoutQuote: total que o cliente viu", () => {
     const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6000 }), deps);
     expect(result).toMatchObject({ ok: false, code: "price-changed", newTotalCents: 6544 });
     expect(!result.ok && result.error.replace(/ /g, " ")).toBe(
-      "O valor do pedido mudou para R$ 65,44. Confira e confirme de novo."
+      "O total do pedido mudou para R$ 65,44. Se estiver de acordo, clique em Pagar de novo."
     );
   });
 
@@ -280,5 +280,15 @@ describe("computeCheckoutQuote: total que o cliente viu", () => {
     // O cliente viu o total COM o desconto (5945 + taxa do Pix = 6144).
     const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6144 }), deps);
     expect(result).toMatchObject({ ok: false, code: "price-changed" });
+  });
+});
+
+describe("computeCheckoutQuote: forma de pagamento que não é oferecida", () => {
+  it("cartão parcelado com máximo de 1 parcela: entrada inválida, sem lançar erro", async () => {
+    const result = await computeCheckoutQuote(selection({ method: "card_installments" }), {
+      ...deps,
+      fees: { ...DEFAULT_PAYMENT_FEES, maxInstallments: 1 },
+    });
+    expect(result).toMatchObject({ ok: false, code: "invalid-input" });
   });
 });

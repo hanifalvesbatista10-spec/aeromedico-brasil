@@ -14,6 +14,7 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
     id: "o1",
     number: 1,
     status: "paid",
+    environment: "production",
     checkoutId: "chk_1",
     trackingCode: null,
     notes: null,
@@ -55,7 +56,7 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
 const plain = (text: string | null) => (text ?? "").replace(/ /g, " ");
 const announcer = () => screen.getByTestId("orders-announcer").textContent;
 const openOrder = (code = "AB-000001") =>
-  fireEvent.click(screen.getByRole("button", { name: `Ver pedido ${code}` }));
+  fireEvent.click(screen.getByRole("button", { name: `Ver detalhes do pedido ${code}` }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -85,7 +86,7 @@ describe("OrdersManager: lista", () => {
         initialOrders={[order(), order({ id: "o2", number: 2, status: "paid_review" })]}
       />
     );
-    expect(within(screen.getByRole("table")).getByText("Pago, conferir")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText("Pago: conferir estoque")).toBeTruthy();
     expect(screen.getByTestId("review-banner").textContent).toContain(
       "1 pedido pago precisa de conferência"
     );
@@ -135,7 +136,7 @@ describe("OrdersManager: detalhe", () => {
     expect(text).toContain("Subtotal R$ 80,00");
     expect(text).toContain("Desconto (VERAO10) -R$ 8,00");
     expect(text).toContain("Frete (Correios PAC) R$ 23,45");
-    expect(text).toContain("Taxa do meio de pagamento R$ 1,99");
+    expect(text).toContain("Taxa de pagamento R$ 1,99");
     expect(text).toContain("Total R$ 97,44");
   });
 });
@@ -216,7 +217,7 @@ describe("OrdersManager: andamento", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByRole("button", { name: /Marcar|Cancelar pedido/ })).toBeNull();
-    expect(dialog.textContent).toContain("Nenhuma mudança de andamento disponível.");
+    expect(dialog.textContent).toContain("Nada a marcar neste pedido.");
   });
 
   it("pedido enviado mostra o código de rastreio e permite copiá-lo", async () => {
@@ -242,5 +243,102 @@ describe("OrdersManager: andamento", () => {
     expect(busy.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(busy);
     expect(updateOrderFulfillment).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("OrdersManager: ambiente e pedido órfão", () => {
+  it("pedido de teste (sandbox) fica marcado na lista e avisa no detalhe para não enviar", () => {
+    render(<OrdersManager initialOrders={[order({ environment: "sandbox" })]} />);
+    expect(within(screen.getByRole("table")).getByText("Teste (sandbox)")).toBeTruthy();
+
+    openOrder();
+    expect(plain(screen.getByRole("dialog").textContent)).toContain("Pedido de teste");
+  });
+
+  it("pedido de produção não tem marca de teste", () => {
+    render(<OrdersManager initialOrders={[order()]} />);
+    expect(screen.queryByText("Teste (sandbox)")).toBeNull();
+  });
+
+  it("aguardando pagamento SEM checkout (órfão) pode ser cancelado; com checkout aberto não", () => {
+    const { unmount } = render(
+      <OrdersManager initialOrders={[order({ status: "awaiting_payment", checkoutId: null })]} />
+    );
+    openOrder();
+    expect(screen.getByRole("button", { name: "Cancelar pedido" })).toBeTruthy();
+    unmount();
+
+    render(<OrdersManager initialOrders={[order({ status: "awaiting_payment", checkoutId: "chk_9" })]} />);
+    openOrder();
+    expect(screen.queryByRole("button", { name: "Cancelar pedido" })).toBeNull();
+  });
+});
+
+describe("OrdersManager: ajustes da revisão", () => {
+  it("o botão da linha diz o mesmo que o texto visível (comando de voz) e identifica o pedido", () => {
+    render(<OrdersManager initialOrders={[order()]} />);
+    const button = screen.getByRole("button", { name: "Ver detalhes do pedido AB-000001" });
+    expect(button.textContent).toBe("Ver detalhes");
+  });
+
+  it("copiar o código mostra o aviso DENTRO do diálogo, visível e anunciado ali", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<OrdersManager initialOrders={[order({ status: "shipped", trackingCode: "AA123456789BR" })]} />);
+    openOrder();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copiar código" }));
+
+    const status = await within(screen.getByRole("dialog")).findByRole("status");
+    expect(status.textContent).toBe("Código de rastreio copiado.");
+  });
+
+  it("cancelar: o botão de confirmar é descrito pelo aviso do estorno e 'Voltar' devolve o foco", () => {
+    render(<OrdersManager initialOrders={[order()]} />);
+    openOrder();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar pedido" }));
+
+    const confirm = screen.getByRole("button", { name: "Confirmar cancelamento" });
+    const described = document.getElementById(confirm.getAttribute("aria-describedby") ?? "");
+    expect(described?.textContent).toContain("Não devolve o dinheiro");
+
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancelar pedido" }));
+  });
+
+  it("enviado sem código: o foco vai para o campo e ele é marcado como inválido", () => {
+    render(<OrdersManager initialOrders={[order({ status: "preparing" })]} />);
+    openOrder();
+    fireEvent.click(screen.getByRole("button", { name: "Marcar como enviado" }));
+
+    const input = screen.getByLabelText("Código de rastreio");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("trocar o filtro anuncia quantos pedidos aparecem", () => {
+    render(
+      <OrdersManager
+        initialOrders={[order(), order({ id: "o2", number: 2, status: "shipped", trackingCode: "AA123456789BR" })]}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Filtrar por situação"), { target: { value: "shipped" } });
+    expect(announcer()).toBe("1 pedido na lista.");
+
+    fireEvent.change(screen.getByLabelText("Filtrar por situação"), { target: { value: "all" } });
+    expect(announcer()).toBe("2 pedidos na lista.");
+  });
+
+  it("pedido aguardando pagamento explica por que não há o que marcar", () => {
+    render(<OrdersManager initialOrders={[order({ status: "awaiting_payment", checkoutId: "chk_9" })]} />);
+    openOrder();
+    expect(plain(screen.getByRole("dialog").textContent)).toContain(
+      "Este pedido aguarda o pagamento. A situação muda sozinha quando o Asaas avisar."
+    );
+  });
+
+  it("avisa quando a lista foi cortada nos pedidos mais recentes", () => {
+    render(<OrdersManager initialOrders={[order()]} showingLatest={200} />);
+    expect(screen.getByText("Mostrando os 200 pedidos mais recentes.")).toBeTruthy();
   });
 });

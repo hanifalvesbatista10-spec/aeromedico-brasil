@@ -203,3 +203,49 @@ describe("mock order repository: leitura pública e andamento", () => {
     expect(await repo.updateFulfillment("nada", { status: "delivered" })).toBeNull();
   });
 });
+
+describe("mock order repository: ajustes da revisão", () => {
+  it("o cupom é contado mesmo com o código do pedido em outra caixa (como o SQL)", async () => {
+    const { repo, checkoutId } = await created(setup(), { couponCode: "verao10" });
+    await repo.applyEvent(event("e1", "CHECKOUT_PAID", checkoutId));
+    expect(repo.inspect().couponUses).toEqual({ VERAO10: 1 });
+  });
+
+  it("pagamento que chega depois de o pedido ser cancelado vai para conferência: o dinheiro entrou", async () => {
+    const { repo, checkoutId, order } = await created();
+    await repo.updateFulfillment(order.id, { status: "canceled" });
+
+    expect(await repo.applyEvent(event("e1", "CHECKOUT_PAID", checkoutId))).toBe("paid_review");
+    expect((await repo.getById(order.id))?.status).toBe("paid_review");
+    expect((await repo.getById(order.id))?.paidAt).not.toBeNull();
+    // Nada é baixado nem contado automaticamente: o dono decide.
+    expect(repo.inspect()).toEqual({ stock: { v1: 5 }, couponUses: { VERAO10: 0 } });
+  });
+
+  it("pagamento em pedido já enviado continua ignorado", async () => {
+    const { repo, checkoutId, order } = await created();
+    await repo.applyEvent(event("e1", "CHECKOUT_PAID", checkoutId));
+    await repo.updateFulfillment(order.id, { status: "shipped" });
+    expect(await repo.applyEvent(event("e2", "CHECKOUT_PAID", checkoutId))).toBe("ignored");
+  });
+
+  it("getById devolve um pedido ou null", async () => {
+    const { repo, order } = await created();
+    expect((await repo.getById(order.id))?.number).toBe(order.number);
+    expect(await repo.getById("nao-existe")).toBeNull();
+  });
+
+  it("list devolve só os 200 mais recentes", async () => {
+    const repo = setup();
+    for (let i = 0; i < 205; i += 1) await repo.create(draft({ items: [], subtotalCents: 0, discountCents: 0, totalCents: 2345 + 359 }));
+    expect(await repo.list()).toHaveLength(200);
+  });
+
+  it("o ambiente do pedido é gravado (sandbox) e, sem informar, é produção", async () => {
+    const repo = setup();
+    const sandbox = await repo.create(draft({ environment: "sandbox" }));
+    const normal = await repo.create(draft());
+    expect((await repo.getById(sandbox.id))?.environment).toBe("sandbox");
+    expect((await repo.getById(normal.id))?.environment).toBe("production");
+  });
+});

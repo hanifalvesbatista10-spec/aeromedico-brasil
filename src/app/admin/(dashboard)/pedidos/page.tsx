@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
+import { ADMIN_ORDERS_LIMIT } from "@/lib/repositories/types";
 import { OrdersManager } from "@/components/admin/orders-manager";
 import { PaymentFeesPanel } from "@/components/admin/payment-fees-panel";
 import { EmptyState } from "@/components/empty-state";
@@ -14,7 +15,7 @@ export default async function AdminPedidosPage() {
     [orders, fees] = await Promise.all([repositories.orders.list(), repositories.paymentSettings.get()]);
   } catch (error) {
     unstable_rethrow(error);
-    console.error("[admin/pedidos] tabelas indisponíveis", error);
+    console.error("[admin/pedidos] tabelas indisponíveis", error instanceof Error ? error.name : "erro");
     return (
       <EmptyState
         title="Não foi possível carregar os pedidos."
@@ -25,7 +26,10 @@ export default async function AdminPedidosPage() {
 
   return (
     <div className="space-y-12">
-      <OrdersManager initialOrders={orders} />
+      <OrdersManager
+        initialOrders={orders}
+        showingLatest={orders.length >= ADMIN_ORDERS_LIMIT ? ADMIN_ORDERS_LIMIT : undefined}
+      />
       <PaymentFeesPanel initialFees={fees} />
     </div>
   );

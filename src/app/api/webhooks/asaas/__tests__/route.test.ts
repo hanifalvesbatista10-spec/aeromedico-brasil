@@ -99,3 +99,29 @@ describe("POST /api/webhooks/asaas", () => {
     expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
   });
 });
+
+describe("POST /api/webhooks/asaas: o que é guardado do evento", () => {
+  it("grava só id, tipo e checkout (id e status); dados do pagador e links ficam de fora", async () => {
+    await POST(
+      request({
+        id: "evt_9",
+        event: "CHECKOUT_PAID",
+        dateCreated: "2026-10-22 10:00:00",
+        checkout: {
+          id: "chk_9",
+          status: "PAID",
+          customer: { name: "Maria", cpfCnpj: "00000000000", email: "maria@exemplo.com" },
+          callback: { successUrl: "https://site/pedido/1?t=chave-secreta" },
+          items: [{ name: "Camiseta" }],
+        },
+        payment: { id: "pay_1", billingType: "PIX" },
+      })
+    );
+    expect(applyEvent).toHaveBeenCalledWith({
+      eventId: "evt_9",
+      type: "CHECKOUT_PAID",
+      checkoutId: "chk_9",
+      payload: { id: "evt_9", event: "CHECKOUT_PAID", checkout: { id: "chk_9", status: "PAID" } },
+    });
+  });
+});

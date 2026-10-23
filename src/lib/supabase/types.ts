@@ -255,6 +255,7 @@ export interface StoreOrderRow {
     | "delivered"
     | "canceled"
     | "expired";
+  environment: "sandbox" | "production";
   customer_name: string;
   customer_email: string;
   customer_phone: string;

@@ -70,6 +70,9 @@ export type CheckoutQuote =
       newTotalCents?: number;
     };
 
+const EMPTY_CART =
+  "Os itens do carrinho não estão mais disponíveis. Atualize a página para ver o que mudou.";
+
 const fail = (
   code: Extract<CheckoutQuote, { ok: false }>["code"],
   error: string,
@@ -86,13 +89,13 @@ export async function computeCheckoutQuote(
   deps: CheckoutDeps
 ): Promise<CheckoutQuote> {
   const parsed = checkoutSelectionSchema.safeParse(rawSelection);
-  if (!parsed.success) return fail("invalid-input", "Não foi possível ler os dados do pedido.");
+  if (!parsed.success) return fail("invalid-input", "Algo deu errado com os dados do pedido. Atualize a página e tente de novo.");
   const selection = parsed.data;
 
   const cep = normalizeCep(selection.shipping.cep);
-  if (!cep) return fail("invalid-input", "Não foi possível ler os dados do pedido.");
+  if (!cep) return fail("invalid-input", "Algo deu errado com os dados do pedido. Atualize a página e tente de novo.");
   if (selection.lines.length === 0) {
-    return fail("empty-cart", "Não há itens disponíveis no carrinho.");
+    return fail("empty-cart", EMPTY_CART);
   }
 
   const [details, categories] = await Promise.all([
@@ -100,7 +103,7 @@ export async function computeCheckoutQuote(
     deps.store.listCategories(),
   ]);
   const cart = priceCart(selection.lines, details, categories);
-  if (cart.lines.length === 0) return fail("empty-cart", "Não há itens disponíveis no carrinho.");
+  if (cart.lines.length === 0) return fail("empty-cart", EMPTY_CART);
 
   // Cupom: reavaliado com o subtotal do servidor; recusado = sem desconto.
   let discountCents = 0;
@@ -120,7 +123,10 @@ export async function computeCheckoutQuote(
   // Frete: cotado de novo, escolhendo a mesma opção por id.
   const shippingItems = buildShippingItems(cart, details);
   const unavailable = () =>
-    fail("shipping-unavailable", "Não foi possível confirmar o frete agora. Tente de novo.");
+    fail(
+      "shipping-unavailable",
+      "Não conseguimos confirmar o frete agora. Tente de novo ou escolha outra opção de frete."
+    );
   if (!deps.shippingProvider) return unavailable();
   const quoted = await deps.shippingProvider.quote({ destinationCep: cep, items: shippingItems });
   if (!quoted.ok) return unavailable();
@@ -129,14 +135,16 @@ export async function computeCheckoutQuote(
   if (option.priceCents !== selection.shipping.expectedCents) {
     return fail(
       "shipping-changed",
-      `O valor do frete mudou para ${formatBRL(option.priceCents)}. Confira e confirme de novo.`,
+      `O frete mudou para ${formatBRL(option.priceCents)}. Confira o novo total e clique em Pagar de novo.`,
       { newShippingCents: option.priceCents }
     );
   }
 
   const orderCents = cart.subtotalCents - discountCents + option.priceCents;
   const options = paymentOptions(orderCents, deps.fees);
-  const chosen = options.find((item) => item.method === (selection.method as PaymentMethod))!;
+  const chosen = options.find((item) => item.method === (selection.method as PaymentMethod));
+  // Forma que não está sendo oferecida (ex.: parcelado com máximo de 1x): nunca estoura.
+  if (!chosen) return fail("invalid-input", "Algo deu errado com os dados do pedido. Atualize a página e tente de novo.");
 
   if (
     selection.expectedTotalCents !== undefined &&
@@ -144,7 +152,7 @@ export async function computeCheckoutQuote(
   ) {
     return fail(
       "price-changed",
-      `O valor do pedido mudou para ${formatBRL(chosen.totalCents)}. Confira e confirme de novo.`,
+      `O total do pedido mudou para ${formatBRL(chosen.totalCents)}. Se estiver de acordo, clique em Pagar de novo.`,
       { newTotalCents: chosen.totalCents }
     );
   }

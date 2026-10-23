@@ -32,7 +32,7 @@ const ACTION_LABELS: Partial<Record<OrderStatus, string>> = {
   canceled: "Cancelar pedido",
 };
 
-/** Texto anunciado depois que o andamento muda ("Pedido AB-000001: enviado."). */
+/** Texto anunciado depois que a situação muda ("Pedido AB-000001: enviado."). */
 const DONE_TEXT: Partial<Record<OrderStatus, string>> = {
   preparing: "em separação",
   shipped: "enviado",
@@ -64,7 +64,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /**
- * Detalhe de um pedido e troca de andamento. O servidor confere a transição de
+ * Detalhe de um pedido e troca de situação. O servidor confere a transição de
  * novo; a checagem daqui só poupa a viagem quando o código de rastreio falta.
  */
 export function OrderDialog({
@@ -80,29 +80,48 @@ export function OrderDialog({
 }) {
   const [busy, setBusy] = useState<OrderStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Aviso curto DENTRO do diálogo: o diálogo é modal, então a região de status
+  // da página fica escondida do leitor de tela enquanto ele está aberto.
+  const [note, setNote] = useState("");
   const [tracking, setTracking] = useState("");
+  const [trackingInvalid, setTrackingInvalid] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const statusRef = useRef<HTMLParagraphElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const trackingRef = useRef<HTMLInputElement>(null);
+  const returnFocusToCancel = useRef(false);
 
   const code = orderCode(order.number);
-  const next = nextStatuses(order.status);
+  const next = nextStatuses(order);
   const forward = next.filter((status) => status !== "canceled");
   const canCancel = next.includes("canceled");
+  const warningId = `cancel-warning-${order.id}`;
 
-  // O botão que abriu a confirmação sai da tela: o foco vai para o botão novo.
   useEffect(() => {
-    if (confirmCancel) confirmRef.current?.focus();
+    if (confirmCancel) {
+      // O botão que abriu a confirmação saiu da tela: o foco vai para o botão novo.
+      confirmRef.current?.focus();
+    } else if (returnFocusToCancel.current) {
+      // "Voltar" fechou a confirmação: o foco volta para quem a abriu.
+      returnFocusToCancel.current = false;
+      cancelRef.current?.focus();
+    }
   }, [confirmCancel]);
 
   async function change(status: OrderStatus) {
     if (busy) return;
     setError(null);
+    setTrackingInvalid(false);
 
     const trackingCode = status === "shipped" ? tracking : undefined;
-    const checked = checkFulfillmentChange(order.status, { status, trackingCode });
+    const checked = checkFulfillmentChange(order, { status, trackingCode });
     if (!checked.ok) {
       setError(checked.error);
+      if (status === "shipped") {
+        setTrackingInvalid(true);
+        trackingRef.current?.focus();
+      }
       return;
     }
 
@@ -118,7 +137,7 @@ export function OrderDialog({
       }
       setConfirmCancel(false);
       onChanged(result.data, `Pedido ${code}: ${DONE_TEXT[status] ?? ORDER_STATUS_LABELS[status].toLowerCase()}.`);
-      // Os botões do andamento anterior saíram da tela: o foco fica na situação.
+      // Os botões da situação anterior saíram da tela: o foco fica na situação.
       statusRef.current?.focus();
     } catch {
       setError("Não foi possível salvar agora. Atualize a página e tente de novo.");
@@ -131,6 +150,7 @@ export function OrderDialog({
     if (!order.trackingCode) return;
     try {
       await navigator.clipboard.writeText(order.trackingCode);
+      setNote("Código de rastreio copiado.");
       onAnnounce("Código de rastreio copiado.");
     } catch {
       setError("Não foi possível copiar. Selecione o código e copie à mão.");
@@ -142,7 +162,10 @@ export function OrderDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto sm:max-w-xl">
+      <DialogContent
+        initialFocus={statusRef}
+        className="max-h-[90vh] max-w-xl overflow-y-auto sm:max-w-xl"
+      >
         <DialogHeader>
           <DialogTitle>{`Pedido ${code}`}</DialogTitle>
           <DialogDescription>
@@ -156,12 +179,25 @@ export function OrderDialog({
             <Badge variant={order.status === "paid_review" ? "destructive" : "secondary"}>
               {ORDER_STATUS_LABELS[order.status]}
             </Badge>
+            {order.environment === "sandbox" && (
+              <>
+                {" "}
+                <Badge variant="outline">Teste (sandbox)</Badge>
+              </>
+            )}
           </p>
+
+          {order.environment === "sandbox" && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              Pedido de teste: foi feito no ambiente de testes do Asaas, com dinheiro de mentira. Não
+              separe nem envie.
+            </p>
+          )}
 
           {order.status === "paid_review" && (
             <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-              O pagamento foi confirmado, mas o estoque não cobriu a compra e nada foi baixado. Confira
-              o estoque ou fale com o cliente antes de separar.
+              O pagamento foi confirmado, mas o estoque não cobriu a compra, então nenhum item foi
+              descontado do estoque. Confira o estoque ou fale com o cliente antes de separar.
             </p>
           )}
 
@@ -205,9 +241,7 @@ export function OrderDialog({
               />
             )}
             <Row label={`Frete (${order.shipping.label})`} value={formatBRL(order.shipping.cents)} />
-            {order.feeCents > 0 && (
-              <Row label="Taxa do meio de pagamento" value={formatBRL(order.feeCents)} />
-            )}
+            {order.feeCents > 0 && <Row label="Taxa de pagamento" value={formatBRL(order.feeCents)} />}
             <Row label="Total" value={formatBRL(order.totalCents)} strong />
           </dl>
           <p className="text-sm text-gray-700">{`Forma de pagamento: ${PAYMENT_METHOD_LABELS[order.paymentMethod]}`}</p>
@@ -224,11 +258,19 @@ export function OrderDialog({
             </div>
           )}
 
+          <p role="status" className={note ? "text-sm text-green-800" : "sr-only"}>
+            {note}
+          </p>
+
           <div className="space-y-3 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold text-navy-950">Andamento</h3>
+            <h3 className="text-sm font-semibold text-navy-950">Atualizar situação</h3>
 
             {next.length === 0 && (
-              <p className="text-sm text-gray-600">Nenhuma mudança de andamento disponível.</p>
+              <p className="text-sm text-gray-600">
+                {order.status === "awaiting_payment"
+                  ? "Este pedido aguarda o pagamento. A situação muda sozinha quando o Asaas avisar."
+                  : "Nada a marcar neste pedido."}
+              </p>
             )}
 
             {order.status === "preparing" && (
@@ -236,10 +278,13 @@ export function OrderDialog({
                 <Label htmlFor="order-tracking">Código de rastreio</Label>
                 <Input
                   id="order-tracking"
+                  ref={trackingRef}
                   value={tracking}
+                  aria-invalid={trackingInvalid}
                   onChange={(e) => {
                     setTracking(e.target.value);
                     setError(null);
+                    setTrackingInvalid(false);
                   }}
                   autoComplete="off"
                   spellCheck={false}
@@ -261,6 +306,7 @@ export function OrderDialog({
               ))}
               {canCancel && !confirmCancel && (
                 <Button
+                  ref={cancelRef}
                   variant="outline"
                   aria-disabled={busy !== null}
                   className="aria-disabled:opacity-60"
@@ -273,21 +319,28 @@ export function OrderDialog({
 
             {confirmCancel && (
               <div className="space-y-3 rounded-md border border-border bg-gray-50 p-3">
-                <p className="text-sm text-gray-700">
-                  Cancelar aqui só muda o andamento do pedido. Se o cliente já pagou, o estorno é feito no
-                  painel do Asaas e o estoque é ajustado à mão.
+                <p id={warningId} className="text-sm text-gray-700">
+                  Cancelar aqui só muda a situação do pedido no site. Não devolve o dinheiro. Se o cliente
+                  já pagou, faça o estorno no painel do Asaas e ajuste o estoque à mão.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     ref={confirmRef}
                     variant="destructive"
+                    aria-describedby={warningId}
                     aria-disabled={busy !== null}
                     className="aria-disabled:opacity-60"
                     onClick={() => void change("canceled")}
                   >
                     {busy === "canceled" ? "Salvando…" : "Confirmar cancelamento"}
                   </Button>
-                  <Button variant="outline" onClick={() => setConfirmCancel(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      returnFocusToCancel.current = true;
+                      setConfirmCancel(false);
+                    }}
+                  >
                     Voltar
                   </Button>
                 </div>

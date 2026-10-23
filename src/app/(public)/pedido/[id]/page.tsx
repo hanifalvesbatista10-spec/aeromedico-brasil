@@ -8,6 +8,8 @@ import type { PublicOrder } from "@/lib/types";
 export const metadata: Metadata = {
   title: "Seu pedido",
   robots: { index: false, follow: false },
+  // A URL leva a chave do pedido: nada dela sai no cabeçalho Referer.
+  referrer: "no-referrer",
 };
 
 /**

@@ -66,13 +66,16 @@ export interface PaymentOption {
   installmentCents: number | null;
 }
 
-/** Pix, cartão à vista e cartão parcelado, nessa ordem, com o total de cada um. */
+/**
+ * Pix, cartão à vista e cartão parcelado, nessa ordem, com o total de cada um.
+ * Com máximo de 1 parcela não há parcelado (seria igual ao à vista, e o Asaas
+ * não aceita um parcelamento de 1x).
+ */
 export function paymentOptions(orderCents: number, fees: PaymentFees): PaymentOption[] {
   const pix = feeFor(orderCents, fees.pix);
   const single = feeFor(orderCents, fees.cardSingle);
-  const installments = feeFor(orderCents, fees.cardInstallments);
 
-  return [
+  const options: PaymentOption[] = [
     { method: "pix", label: "Pix", ...pix, installments: null, installmentCents: null },
     {
       method: "card_single",
@@ -81,14 +84,19 @@ export function paymentOptions(orderCents: number, fees: PaymentFees): PaymentOp
       installments: null,
       installmentCents: null,
     },
-    {
+  ];
+
+  if (fees.maxInstallments >= 2) {
+    const installments = feeFor(orderCents, fees.cardInstallments);
+    options.push({
       method: "card_installments",
-      label: `Cartão em até ${fees.maxInstallments}x`,
+      label: `Cartão parcelado em até ${fees.maxInstallments}x`,
       ...installments,
       installments: fees.maxInstallments,
       installmentCents: Math.ceil(installments.totalCents / fees.maxInstallments),
-    },
-  ];
+    });
+  }
+  return options;
 }
 
 /** Valida a configuração de taxas; devolve a mensagem do primeiro problema ou `null`. */

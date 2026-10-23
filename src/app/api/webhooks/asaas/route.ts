@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     id?: unknown;
     event?: unknown;
-    checkout?: { id?: unknown } | null;
+    checkout?: { id?: unknown; status?: unknown } | null;
   } | null;
   if (
     typeof body !== "object" ||
@@ -46,12 +46,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // O corpo do Asaas pode trazer dados do pagador e o link de retorno (com a
+  // chave do pedido): guardamos só o necessário para auditar o evento.
+  const status = body.checkout?.status;
+  const payload = {
+    id: body.id,
+    event: body.event,
+    checkout: { id: checkoutId, ...(typeof status === "string" ? { status } : {}) },
+  };
+
   try {
     await getRepositories().orders.applyEvent({
       eventId: body.id,
       type: body.event,
       checkoutId,
-      payload: body,
+      payload,
     });
     return NextResponse.json({ ok: true });
   } catch (error) {

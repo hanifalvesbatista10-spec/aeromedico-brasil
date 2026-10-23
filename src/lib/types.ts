@@ -244,6 +244,9 @@ export type OrderStatus =
   | "canceled"
   | "expired";
 
+/** Ambiente do Asaas em que o pedido foi criado: pedido de teste nunca deve ser enviado. */
+export type OrderEnvironment = "sandbox" | "production";
+
 export interface OrderItemInput {
   productId: string;
   variantId: string | null;
@@ -276,12 +279,15 @@ export interface OrderDraft {
   feeCents: number;
   totalCents: number;
   paymentMethod: import("@/lib/payments/fees").PaymentMethod;
+  /** Sem informar, vale `production`. */
+  environment?: OrderEnvironment;
 }
 
 export interface StoreOrder extends OrderDraft {
   id: string;
   number: number;
   status: OrderStatus;
+  environment: OrderEnvironment;
   checkoutId: string | null;
   trackingCode: string | null;
   notes: string | null;

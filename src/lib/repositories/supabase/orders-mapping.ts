@@ -1,3 +1,4 @@
+import { MIN_ORDERS_SECRET_LENGTH, usableOrdersSecret } from "@/lib/orders/secret";
 import { DEFAULT_PAYMENT_FEES, type PaymentFees } from "@/lib/payments/fees";
 import type {
   StoreOrderItemRow,
@@ -11,8 +12,12 @@ import type { OrderDraft, OrderStatus, PublicOrder, StoreOrder } from "@/lib/typ
 
 /** Segredo que autoriza as funções SQL de escrita. Cita só o NOME da variável nos erros. */
 export function readOrdersSecret(env: Record<string, string | undefined>): string {
-  const secret = env.ORDERS_RPC_SECRET?.trim();
-  if (!secret) throw new Error("A variável ORDERS_RPC_SECRET não está configurada.");
+  const secret = usableOrdersSecret(env.ORDERS_RPC_SECRET);
+  if (!secret) {
+    throw new Error(
+      `A variável ORDERS_RPC_SECRET não está configurada ou tem menos de ${MIN_ORDERS_SECRET_LENGTH} caracteres.`
+    );
+  }
   return secret;
 }
 
@@ -29,6 +34,7 @@ export function orderDraftToRpc(draft: OrderDraft) {
     feeCents: draft.feeCents,
     totalCents: draft.totalCents,
     paymentMethod: draft.paymentMethod,
+    environment: draft.environment ?? "production",
   };
 }
 
@@ -37,6 +43,7 @@ export function orderRowToDomain(row: StoreOrderRow, items: StoreOrderItemRow[])
     id: row.id,
     number: row.number,
     status: row.status,
+    environment: row.environment === "sandbox" ? "sandbox" : "production",
     customer: { name: row.customer_name, email: row.customer_email, phone: row.customer_phone },
     address: {
       cep: row.ship_cep,

@@ -42,12 +42,12 @@ describe("OrderSummary", () => {
   it.each<[OrderStatus, string]>([
     ["awaiting_payment", "Aguardando pagamento"],
     ["paid", "Pagamento confirmado"],
-    ["paid_review", "Pagamento confirmado. Estamos conferindo o seu pedido e entraremos em contato."],
+    ["paid_review", "Pagamento confirmado. Estamos conferindo a disponibilidade dos itens e vamos falar com você pelo e-mail ou telefone informado."],
     ["preparing", "Em separação"],
     ["shipped", "Enviado"],
     ["delivered", "Entregue"],
-    ["canceled", "Cancelado"],
-    ["expired", "Expirado"],
+    ["canceled", "Pedido cancelado"],
+    ["expired", "Pedido expirado: o prazo para pagar terminou."],
   ])("status %s aparece como '%s'", (status, label) => {
     render(<OrderSummary order={order({ status })} />);
     expect(screen.getByTestId("order-status").textContent).toBe(label);
@@ -56,12 +56,12 @@ describe("OrderSummary", () => {
   it("Desconto e Taxa só aparecem quando maiores que zero", () => {
     const { rerender } = render(<OrderSummary order={order()} />);
     expect(text()).not.toContain("Desconto");
-    expect(text()).not.toContain("Taxa do meio de pagamento");
+    expect(text()).not.toContain("Taxa de pagamento");
 
     rerender(<OrderSummary order={order({ discountCents: 998, feeCents: 359, totalCents: 14325 - 998 + 359 })} />);
     expect(text()).toContain("Desconto");
     expect(text()).toContain("-R$ 9,98");
-    expect(text()).toContain("Taxa do meio de pagamento");
+    expect(text()).toContain("Taxa de pagamento");
     expect(text()).toContain("R$ 3,59");
   });
 

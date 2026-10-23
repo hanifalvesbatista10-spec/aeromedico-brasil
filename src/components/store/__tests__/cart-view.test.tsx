@@ -902,3 +902,36 @@ describe("CartView: pagamento pelo site", () => {
     expect(screen.getByText(/Calcule o frete para pagar pelo site/)).toBeTruthy();
   });
 });
+
+describe("CartView: pagamento pelo site, ajustes da revisão", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  it("com o pagamento no ar, o WhatsApp continua como saída discreta", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+
+    const link = screen.getByRole("link", { name: /Prefere finalizar pelo WhatsApp/ });
+    expect(link.getAttribute("href")).toContain("wa.me");
+    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
+  });
+
+  it("o total do resumo avisa que ainda não inclui a taxa do pagamento", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+
+    expect(screen.getByText("Total sem a taxa do pagamento")).toBeTruthy();
+  });
+});
