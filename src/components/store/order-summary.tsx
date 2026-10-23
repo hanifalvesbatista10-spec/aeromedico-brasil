@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatBRL } from "@/lib/money";
+import { orderCode } from "@/lib/orders/fulfillment";
 import { cn } from "@/lib/utils";
 import type { OrderStatus, PublicOrder } from "@/lib/types";
 
@@ -55,7 +56,7 @@ export function OrderSummary({
   /** Endereço desta mesma página (com a chave) para conferir o status de novo. */
   refreshHref?: string;
 }) {
-  const code = `AB-${String(order.number).padStart(6, "0")}`;
+  const code = orderCode(order.number);
   const waiting = order.status === "awaiting_payment";
 
   return (
