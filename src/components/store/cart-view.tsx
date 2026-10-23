@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
+import { CartCheckout } from "@/components/store/cart-checkout";
 import { CartShipping, type ShippingSelection } from "@/components/store/cart-shipping";
 import { useCart } from "@/hooks/use-cart";
 import { priceCartAction } from "@/lib/actions/cart";
@@ -51,9 +52,16 @@ function describeLine(line: { name: string; size?: string | null; colorName?: st
 /**
  * Carrinho do cliente. O navegador guarda só ids e quantidades; nome, foto,
  * preço e disponibilidade vêm do servidor (`priceCartAction`) a cada mudança.
- * Enquanto não há pagamento, a finalização é pelo WhatsApp do cliente.
+ * Com o pagamento pelo site ligado (`checkoutEnabled`) e o frete escolhido, a
+ * finalização é o `CartCheckout`; do contrário continua pelo WhatsApp do cliente.
  */
-export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
+export function CartView({
+  whatsappUrl,
+  checkoutEnabled = false,
+}: {
+  whatsappUrl: string;
+  checkoutEnabled?: boolean;
+}) {
   const cart = useCart();
   // O servidor não conhece o localStorage: antes de hidratar não dá para dizer "vazio".
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -277,6 +285,9 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
     const shipping =
       shippingChoice && shippingChoice.signature === cartSignature ? shippingChoice : null;
     const totalCents = subtotalCents - discountCents + (shipping?.priceCents ?? 0);
+    // O pagamento só abre com frete escolhido e itens válidos; cupom só vai se ainda vale.
+    const payOnSite = checkoutEnabled && shipping !== null && lines.length > 0;
+    const checkoutCouponCode = coupon && evaluation?.ok ? coupon.code : null;
 
     const whatsappHref =
       lines.length > 0
@@ -540,36 +551,49 @@ export function CartView({ whatsappUrl }: { whatsappUrl: string }) {
             />
           )}
 
-          <p className="mt-3 text-sm text-gray-600">
-            {shipping
-              ? "A forma de pagamento é combinada no WhatsApp."
-              : "O frete e a forma de pagamento são combinados no WhatsApp."}
-          </p>
-          <div className="mt-5">
-            {whatsappHref ? (
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(buttonVariants({ size: "lg" }), "h-11 w-full")}
-              >
-                Finalizar pelo WhatsApp
-                <span className="sr-only"> (abre em nova aba)</span>
-              </a>
-            ) : (
-              <span
-                aria-disabled="true"
-                className={cn(
-                  buttonVariants({ size: "lg", variant: "outline" }),
-                  "pointer-events-none h-11 w-full opacity-60"
+          {payOnSite && shipping ? (
+            <CartCheckout
+              lines={cart.lines}
+              couponCode={checkoutCouponCode}
+              shipping={shipping}
+              onAnnounce={setAnnouncement}
+            />
+          ) : (
+            <>
+              <p className="mt-3 text-sm text-gray-600">
+                {checkoutEnabled
+                  ? "Calcule o frete para pagar pelo site. Se preferir, finalize pelo WhatsApp."
+                  : shipping
+                    ? "A forma de pagamento é combinada no WhatsApp."
+                    : "O frete e a forma de pagamento são combinados no WhatsApp."}
+              </p>
+              <div className="mt-5">
+                {whatsappHref ? (
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(buttonVariants({ size: "lg" }), "h-11 w-full")}
+                  >
+                    Finalizar pelo WhatsApp
+                    <span className="sr-only"> (abre em nova aba)</span>
+                  </a>
+                ) : (
+                  <span
+                    aria-disabled="true"
+                    className={cn(
+                      buttonVariants({ size: "lg", variant: "outline" }),
+                      "pointer-events-none h-11 w-full opacity-60"
+                    )}
+                  >
+                    {lines.length > 0
+                      ? "Não foi possível abrir o WhatsApp agora"
+                      : "Nenhum item disponível para finalizar"}
+                  </span>
                 )}
-              >
-                {lines.length > 0
-                  ? "Não foi possível abrir o WhatsApp agora"
-                  : "Nenhum item disponível para finalizar"}
-              </span>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </aside>
       </div>
     );

@@ -14,6 +14,12 @@ vi.mock("@/lib/actions/shipping", () => ({
   quoteShippingAction: (...args: unknown[]) => quoteShippingAction(...args),
 }));
 
+const quoteCheckoutAction = vi.fn();
+vi.mock("@/lib/actions/checkout", () => ({
+  quoteCheckoutAction: (...args: unknown[]) => quoteCheckoutAction(...args),
+  placeOrderAction: vi.fn(),
+}));
+
 import { CartView } from "../cart-view";
 
 const KEY = "aeromedico:cart:v1";
@@ -464,6 +470,14 @@ describe("CartView com cupom", () => {
   });
 });
 
+const checkoutQuote = {
+  ok: true,
+  options: [
+    { method: "pix", label: "Pix", feeCents: 199, totalCents: 12000, installments: null, installmentCents: null },
+    { method: "card_single", label: "Cartão à vista", feeCents: 247, totalCents: 12048, installments: null, installmentCents: null },
+  ],
+};
+
 const PAC = { id: "1", name: "PAC", company: "Correios", priceCents: 2345, deliveryDays: 6 };
 const SEDEX = { id: "2", name: "SEDEX", company: "Correios", priceCents: 4120, deliveryDays: 2 };
 const quoteOk = (options = [PAC, SEDEX]) => ({ ok: true, options, cep: "01018020" });
@@ -780,5 +794,111 @@ describe("CartView: frete, ajustes da revisão", () => {
 
     expect(screen.queryByTestId("cart-shipping")).toBeNull();
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
+  });
+});
+
+describe("CartView: pagamento pelo site", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  async function renderEnabled(quantity = 2, coupon = false) {
+    seed([shirt(quantity)]);
+    fakeServer({}, coupon ? { coupon: VERAO10 } : {});
+    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+  }
+
+  it("desligado (padrão): com o frete escolhido, continua só o WhatsApp", async () => {
+    await renderWithShirts();
+    calculate();
+    await screen.findByRole("group", { name: "Opções de entrega" });
+
+    expect(screen.queryByTestId("cart-checkout")).toBeNull();
+    expect(quoteCheckoutAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeTruthy();
+  });
+
+  it("ligado, mas sem frete escolhido: pede o frete e mantém o WhatsApp como saída", async () => {
+    await renderEnabled();
+
+    expect(screen.queryByTestId("cart-checkout")).toBeNull();
+    expect(quoteCheckoutAction).not.toHaveBeenCalled();
+    expect(screen.getByText(/Calcule o frete para pagar pelo site/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeTruthy();
+  });
+
+  it("ligado e com o frete escolhido: mostra o pagamento no lugar do WhatsApp e cota no servidor", async () => {
+    await renderEnabled();
+    calculate();
+
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeNull();
+    expect(screen.queryByText(/combinad[oa]s? no WhatsApp/)).toBeNull();
+    expect(quoteCheckoutAction).toHaveBeenCalledWith({
+      lines: [shirt(2)],
+      couponCode: null,
+      shipping: { optionId: "1", cep: "01018020", expectedCents: 2345 },
+      method: "pix",
+    });
+  });
+
+  it("cupom aceito vai junto na cotação do pagamento", async () => {
+    await renderEnabled(2, true);
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+    calculate();
+
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect(quoteCheckoutAction).toHaveBeenLastCalledWith(
+      expect.objectContaining({ couponCode: "VERAO10" })
+    );
+  });
+
+  it("cupom que deixou de valer (abaixo do mínimo) não vai na cotação", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: { ...VERAO10, minOrderCents: 9000 } });
+    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+
+    priceCartAction.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Diminuir quantidade de Camiseta Aeromédico, M, Preta" }));
+    await screen.findByText("Cupom VERAO10 não está valendo agora");
+    calculate();
+
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect(quoteCheckoutAction).toHaveBeenLastCalledWith(expect.objectContaining({ couponCode: null }));
+  });
+
+  it("trocar a opção de frete refaz a cotação do pagamento com a nova opção", async () => {
+    await renderEnabled();
+    calculate();
+    const shipping = await screen.findByRole("group", { name: "Opções de entrega" });
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+
+    fireEvent.click(within(shipping).getAllByRole("radio")[1]);
+
+    await waitFor(() =>
+      expect(quoteCheckoutAction).toHaveBeenLastCalledWith(
+        expect.objectContaining({ shipping: { optionId: "2", cep: "01018020", expectedCents: 4120 } })
+      )
+    );
+  });
+
+  it("mexer no carrinho tira o pagamento da tela até o frete ser calculado de novo", async () => {
+    await renderEnabled();
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+
+    await waitFor(() => expect(screen.queryByTestId("cart-checkout")).toBeNull());
+    expect(screen.getByText(/Calcule o frete para pagar pelo site/)).toBeTruthy();
   });
 });
