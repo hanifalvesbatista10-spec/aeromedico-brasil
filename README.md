@@ -59,6 +59,7 @@ ordem:
 5. `20261018120000_store_catalog.sql` (loja: categorias, produtos, variações e fotos; o catálogo nasce vazio)
 6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Não foi possível verificar o cupom agora.")
 7. `20261022120000_store_orders.sql` (pedidos, taxas do Asaas e funções protegidas por segredo; depois dela, grave o hash do `ORDERS_RPC_SECRET` — ver o runbook do Asaas. Sem ela, `/admin/pedidos` mostra um aviso e o pagamento pelo site não funciona)
+8. `20261023120000_store_orders_hardening.sql` (ambiente do pedido, pagamento que chega depois de cancelado e trava de estoque)
 
 **Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
 mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
@@ -200,9 +201,14 @@ preenchidas com informação real antes de publicar.
   [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md).
 - Ainda não existem: e-mails automáticos ao comprador, etiqueta/rastreio automáticos e área do cliente.
   O site só **cota** o frete; a etiqueta é comprada no painel do Melhor Envio.
-- **Pedido pago com estoque insuficiente** vira "Pago, conferir" (nada é baixado) e aparece em destaque no
-  painel. **Cancelar um pedido pago no painel não devolve o dinheiro**: o estorno é feito no painel do
-  Asaas e o estoque é ajustado à mão.
+- **Pedido pago com estoque insuficiente** vira "Pago: conferir estoque" (nenhum item é descontado) e aparece
+  em destaque no painel. O mesmo vale para pagamento que chega depois de o pedido ser cancelado. **Cancelar um pedido pago no painel não devolve o dinheiro**: o estorno é feito no painel do
+  Asaas e o estoque é ajustado à mão. Estorno e contestação feitos no Asaas **não** atualizam o pedido.
+- **Antes de abrir a loja:** limite de requisições no Firewall da Vercel para as ações do carrinho e o webhook
+  (ver o runbook), segredo dos pedidos novo (o do desenvolvimento não vai para a produção) e pedidos de teste
+  limpos: teste e produção dividem o mesmo banco, e os pedidos de sandbox aparecem marcados como teste.
+  Limitações conhecidas (limite de usos do cupom, cancelamento que não repõe estoque, retenção de dados) estão
+  no final do runbook.
 - Limites do carrinho: 99 unidades por item e 50 itens diferentes. Cada ação do
   carrinho consulta o catálogo inteiro; com catálogo grande, trocar por consulta
   filtrada e adicionar limite de requisições (WAF) antes de crescer.
@@ -223,11 +229,14 @@ preenchidas com informação real antes de publicar.
 - **Antes de cobrar pelo site:** parecer do contador sobre repassar a taxa do meio de pagamento ao
   comprador, e a política de privacidade cobrindo os dados do pedido (nome, e-mail, telefone, endereço),
   gravados no banco do site e enviados ao Asaas e ao Melhor Envio.
-- **A política de privacidade ainda não cobre a loja**: o CEP de entrega é enviado ao
-  Melhor Envio (cálculo do frete) e entra na mensagem do WhatsApp, os dados do pedido
-  seguem pelo WhatsApp e o carrinho (só ids e quantidades) fica no navegador. O CEP
-  não é gravado no servidor. Incluir esses pontos na revisão jurídica antes de divulgar
-  a loja.
+- **A política de privacidade ainda não cobre a loja**: com o pagamento pelo site, nome, e-mail,
+  telefone e endereço de entrega (com CEP) do comprador são **gravados no banco do site** e só o
+  administrador os lê; o Asaas recebe o resumo e o total do pedido e coleta os dados do pagador na
+  própria página; o Melhor Envio recebe só os CEPs de origem e destino e as dimensões do pacote; o
+  carrinho (só ids e quantidades) fica no navegador; o Google Analytics e o Pixel da Meta não carregam
+  na página do pedido (a URL dela leva a chave de acesso). Faltam: prazo de guarda dos pedidos, rotina de
+  exclusão (hoje só por SQL), finalidade e base legal, e o link da política no formulário de pagamento.
+  Incluir tudo na revisão jurídica antes de divulgar a loja.
 
 **Limitações conhecidas**
 - Sem rate limiting de infraestrutura no endpoint de leads; hoje há apenas
@@ -241,7 +250,7 @@ preenchidas com informação real antes de publicar.
 
 ## Próximos passos sugeridos
 
-1. Confirmar o projeto Supabase do CMS, aplicar as 7 migrations e autorizar o
+1. Confirmar o projeto Supabase do CMS, aplicar as 8 migrations e autorizar o
    administrador (seção "Banco de dados e primeiro administrador").
 2. Testar o painel de ponta a ponta contra o banco real (login, CRUD, uploads).
 3. Substituir o conteúdo demonstrativo por formações, conteúdos e depoimentos

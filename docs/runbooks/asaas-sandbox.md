@@ -4,8 +4,8 @@ Roteiro para ligar o pagamento pelo site (Asaas Checkout) e o frete (Melhor Envi
 tudo com dinheiro de mentira e só então passar para a conta real. Desenho em
 [`docs/superpowers/specs/2026-10-22-pedidos-pagamento-asaas-design.md`](../superpowers/specs/2026-10-22-pedidos-pagamento-asaas-design.md).
 
-**Regra do projeto:** as contas (Asaas, Melhor Envio, e-mail, domínio) são do cliente. Quem faz
-cadastro com documento (conta real) é o próprio cliente; quem implanta recebe só a chave ou o
+**Regra do projeto:** as contas (Asaas, Melhor Envio, e-mail, domínio) são do dono do site. Quem faz
+cadastro com documento (conta real) é o próprio dono; quem implanta recebe só a chave ou o
 token e coloca na Vercel. Nunca cole chave, token ou segredo em chat, issue ou Git.
 
 ## O que faz o pagamento aparecer no carrinho
@@ -25,21 +25,33 @@ Faltando qualquer uma, o carrinho continua só com o WhatsApp. Dá para ligar ao
 
 ## 1. Banco (uma vez)
 
-1. Aplicar `supabase/migrations/20261022120000_store_orders.sql` no SQL Editor do Supabase do
-   projeto (depois das migrations anteriores).
-2. Gerar o segredo: um texto aleatório de pelo menos 32 caracteres, por exemplo 64 caracteres
-   hexadecimais. Guardar em `ORDERS_RPC_SECRET` (`.env.local` e Vercel, **o mesmo valor** nos dois).
-3. Gravar o hash dele no banco (uma vez; pode rodar de novo para trocar o segredo):
+1. Aplicar, nesta ordem, no SQL Editor do Supabase do projeto (depois das migrations anteriores):
+   `supabase/migrations/20261022120000_store_orders.sql` e
+   `supabase/migrations/20261023120000_store_orders_hardening.sql` (coluna de ambiente do pedido,
+   pagamento que chega depois de cancelado vira "Pago: conferir estoque" e trava das variações).
+2. Gerar o segredo: um texto aleatório de **64 caracteres** (o site recusa menos de 32, porque ele é
+   a única proteção do "marcar como pago"). Guardar em `ORDERS_RPC_SECRET` (`.env.local` e Vercel,
+   **o mesmo valor** nos dois).
+3. Gravar no banco só o **hash** do segredo, calculado no seu computador, para o segredo nunca ficar em
+   texto no histórico do SQL Editor. No PowerShell, com o segredo carregado só nessa sessão:
+
+   ```powershell
+   $env:ORDERS_RPC_SECRET = "<SEGREDO>"
+   node -e "const c=require('crypto');console.log(c.createHash('sha256').update(process.env.ORDERS_RPC_SECRET.trim()).digest('hex'))"
+   ```
+
+   Copie o texto hexadecimal que sair e rode no SQL Editor (uma vez; pode rodar de novo para trocar o
+   segredo):
 
    ```sql
    insert into private.app_secrets (name, secret_hash)
-   values ('orders', sha256(convert_to('<SEGREDO>', 'utf8')))
+   values ('orders', decode('<HASH_HEXADECIMAL>', 'hex'))
    on conflict (name) do update set secret_hash = excluded.secret_hash;
    ```
 
    O banco guarda **um** segredo só. Se o valor da Vercel for diferente do gravado aqui, toda
    gravação de pedido é recusada ("não autorizado").
-4. Conferir (esperado: `taxas = 1`, `segredo = 1`, `funcoes = 5`):
+4. Conferir (esperado: `taxas = 1`, `segredo = 1`, `funcoes = 5`, `ambiente = 1`):
 
    ```sql
    select
@@ -50,7 +62,11 @@ Faltando qualquer uma, o carrinho continua só com o WhatsApp. Dá para ligar ao
        where n.nspname = 'public'
          and p.proname in ('create_store_order', 'attach_store_order_checkout',
                            'cancel_store_order_pending', 'apply_store_order_event',
-                           'get_store_order_public')) as funcoes;
+                           'get_store_order_public')) as funcoes,
+     (select count(*)
+        from information_schema.columns
+       where table_schema = 'public' and table_name = 'store_orders'
+         and column_name = 'environment') as ambiente;
    ```
 
 ## 2. Asaas sandbox
@@ -67,6 +83,11 @@ Faltando qualquer uma, o carrinho continua só com o WhatsApp. Dá para ligar ao
 4. O Asaas não alcança `localhost`. Para testar o pagamento completo no seu computador use um
    túnel público temporário, ou teste em um deploy. **Não** coloque chaves de sandbox no ambiente
    de Production da Vercel: o site passaria a aceitar pagamento de mentira.
+5. **Teste e produção dividem o mesmo banco.** Todo pedido guarda em qual ambiente do Asaas foi criado, e
+   o painel marca os de sandbox com "Teste (sandbox)" e avisa para não enviar. Mesmo assim, limpe os
+   pedidos de teste antes de ir ao ar (cancele-os ou peça a remoção por SQL) e **troque o
+   `ORDERS_RPC_SECRET`** antes do lançamento (ver "Passagem para produção"): o valor usado no
+   desenvolvimento ficou no seu computador.
 
 ### Dúvidas que só o teste responde
 
@@ -74,7 +95,7 @@ Registre o resultado aqui quando descobrir.
 
 - O Checkout está liberado para conta de **pessoa física (CPF)**? O sandbox pode liberar mesmo que
   a conta real não tenha. Confirmar com o suporte do Asaas, pela conta real.
-- O cliente consegue escolher 1x dentro do parcelado?
+- O comprador consegue escolher 1x dentro do parcelado?
 - Formato do `imageBase64` do item (base64 puro ou com prefixo `data:`). Hoje enviamos o logo
   reduzido em base64 puro (`src/lib/payments/checkout-image.ts`).
 - O evento `CHECKOUT_PAID` traz `checkout.id`? É por ele que o pedido é encontrado.
@@ -116,7 +137,7 @@ Sem o cabeçalho (ou com token errado) a resposta é `401`. Repetir o mesmo `id`
 
 ## 4. Passagem para produção
 
-1. **O cliente** abre e conclui a conta real do Asaas (a análise de documentos é do Asaas).
+1. **O dono do site** abre e conclui a conta real do Asaas (a análise de documentos é do Asaas).
 2. Confirmar com o suporte se o Checkout está liberado para a conta (CPF ou CNPJ).
 3. Gerar a chave de API **da conta real**. Guardá-la só na Vercel (Production), nunca no `.env.local`.
 4. Na Vercel (Production): `ASAAS_ENV=production`, `ASAAS_API_KEY` (real), `ASAAS_WEBHOOK_TOKEN`
@@ -129,16 +150,47 @@ Sem o cabeçalho (ou com token errado) a resposta é `401`. Repetir o mesmo `id`
 8. Antes de divulgar: número real do WhatsApp em `/admin/configuracoes`, política de privacidade
    atualizada (CEP, dados de entrega, WhatsApp, Asaas) e o parecer do contador sobre repassar a taxa ao
    comprador.
-9. Fazer **uma compra real de valor baixo** e conferir o pedido, a confirmação e o painel.
-10. Só então `git push` na `main` (publica o site) e redeploy na Vercel com as variáveis novas.
+9. **Troque o segredo dos pedidos**: gere um `ORDERS_RPC_SECRET` novo, coloque-o na Vercel (Production) e
+   regrave o hash no banco (passo 3 de "Banco"), no mesmo momento. O valor do desenvolvimento não deve
+   proteger a loja real.
+10. **Limite de requisições (Vercel Firewall):** crie regras de rate limit por IP para as chamadas `POST`
+    em `/carrinho` (as ações de frete, cotação e pedido) e em `/api/webhooks/asaas`. Sem isso, um script
+    consegue criar milhares de pedidos "aguardando pagamento" (enche o banco com dados falsos, gasta a cota
+    do Asaas e do Melhor Envio). Pedido aguardando pagamento não expira sozinho no banco: use o filtro
+    "Aguardando pagamento" e cancele os órfãos (sem checkout) no painel.
+11. Fazer **uma compra real de valor baixo** e conferir o pedido, a confirmação e o painel.
+12. Só então `git push` na `main` (publica o site) e redeploy na Vercel com as variáveis novas.
 
 ## Operação do dia a dia
 
 - **Etiqueta e rastreio:** o site só **cota** o frete. A etiqueta é comprada no painel do Melhor Envio
   (com saldo); o código de rastreio é colado em `/admin/pedidos` ao marcar "Enviado".
-- **"Pago, conferir":** o pagamento foi confirmado, mas o estoque não cobria a compra e nada foi baixado.
-  Confira o estoque ou fale com o cliente antes de separar.
+- **"Pago: conferir estoque":** o pagamento foi confirmado, mas o estoque não cobria a compra, então nenhum item foi
+  descontado do estoque. Confira o estoque ou fale com o cliente antes de separar. O mesmo status aparece
+  quando um pagamento chega **depois** de o pedido ter sido cancelado: o dinheiro entrou e é preciso estornar
+  ou retomar o pedido.
 - **Cancelar pedido pago:** mudar o andamento no painel **não devolve o dinheiro**. O estorno é feito no
   painel do Asaas e o estoque é ajustado à mão.
 - **Trocar o segredo dos pedidos:** gere outro, atualize a Vercel e rode o `insert ... on conflict` do
   passo 1 com o novo valor, nessa ordem, no mesmo momento.
+
+## Limitações conhecidas (decididas na revisão antes do lançamento)
+
+Nenhuma bloqueia vender com acompanhamento do dono, mas todas pedem atenção:
+
+- **Limite de usos do cupom.** O limite só é conferido na cotação. Vários compradores com o mesmo cupom e pedidos
+  abertos ao mesmo tempo podem passar do limite, porque o uso só é contado quando o pagamento é confirmado.
+  O prejuízo máximo é o valor do desconto.
+- **Cancelar não desfaz nada.** Cancelar um pedido pago não devolve o dinheiro, não repõe o estoque e não
+  desconta o uso do cupom: o estorno é no painel do Asaas e o resto é ajuste manual.
+- **Estorno e contestação não chegam ao pedido.** O webhook só trata eventos de Checkout. Um pedido estornado ou
+  contestado no Asaas continua "Pago" no painel: confira o painel do Asaas antes de enviar pedidos antigos.
+- **O pagamento não é conferido na API do Asaas.** Quem confirma o pedido é o webhook, protegido pelo
+  `ASAAS_WEBHOOK_TOKEN`. Se esse token vazar, troque-o no site e no Asaas na hora.
+- **Pedidos aguardando pagamento ficam até alguém cancelar.** Os que o Asaas expira ou cancela se resolvem pelo
+  webhook; os órfãos (sem checkout) podem ser cancelados no painel.
+- **O painel mostra os 200 pedidos mais recentes.** O restante fica no banco.
+- **Dados pessoais dos pedidos** (nome, e-mail, telefone, endereço) ficam guardados sem prazo e só o administrador
+  lê. Não há rotina de exclusão: atender um pedido de exclusão do titular (LGPD) hoje exige SQL manual.
+- **O dono confere o estoque do "Pago: conferir estoque" à mão.** Pedido resolvido pelo dono não baixa estoque
+  nem conta cupom sozinho.
