@@ -10,6 +10,8 @@ Decisões de arquitetura e planos de implementação ficam em
 - [`specs/2026-08-25-aeromedico-brasil-design.md`](docs/superpowers/specs/2026-08-25-aeromedico-brasil-design.md): design do site
 - [`plans/2026-08-25-aeromedico-brasil.md`](docs/superpowers/plans/2026-08-25-aeromedico-brasil.md): plano da fase 1 (landing e painel estrutural)
 - [`plans/2026-09-05-cms-supabase.md`](docs/superpowers/plans/2026-09-05-cms-supabase.md): plano do CMS sobre Supabase
+- [`specs/2026-10-22-pedidos-pagamento-asaas-design.md`](docs/superpowers/specs/2026-10-22-pedidos-pagamento-asaas-design.md) e [`plans/2026-10-22-pedidos-pagamento-asaas.md`](docs/superpowers/plans/2026-10-22-pedidos-pagamento-asaas.md): pedidos e pagamento com Asaas
+- [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md): roteiro do sandbox, teste de ponta a ponta e passagem para produção
 
 ## Stack
 
@@ -37,6 +39,7 @@ Preencha `.env.local`:
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública do site (metadata, sitemap e JSON-LD). Local: `http://localhost:3000`. |
 | `NEXT_PUBLIC_GA_ID` / `NEXT_PUBLIC_META_PIXEL_ID` | Não | Os scripts de analytics só carregam se a variável existir. |
 | `MELHOR_ENVIO_TOKEN`, `STORE_ORIGIN_CEP`, `MELHOR_ENVIO_CONTACT_EMAIL`, `MELHOR_ENVIO_ENV` | Não | Frete automático do carrinho (Melhor Envio). **Só servidor** (sem `NEXT_PUBLIC`). Precisam estar as três primeiras para o frete calcular; `MELHOR_ENVIO_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). Passo a passo na seção da loja. |
+| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_ENV`, `ORDERS_RPC_SECRET` | Não | Pagamento pelo site (Asaas Checkout). **Só servidor.** O botão "Pagar" só aparece com as quatro definidas **mais** o frete e `NEXT_PUBLIC_SITE_URL`; senão o carrinho segue pelo WhatsApp. `ASAAS_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). `ORDERS_RPC_SECRET` deve ser o mesmo valor cujo hash está no banco. Roteiro em [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md). |
 
 Sem as duas variáveis do Supabase, a leitura de conteúdo e o painel falham com
 um erro explícito (`src/lib/supabase/env.ts`); não há fallback silencioso para
@@ -55,6 +58,7 @@ ordem:
 4. `20260905120300_cms_seed.sql`
 5. `20261018120000_store_catalog.sql` (loja: categorias, produtos, variações e fotos; o catálogo nasce vazio)
 6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Não foi possível verificar o cupom agora.")
+7. `20261022120000_store_orders.sql` (pedidos, taxas do Asaas e funções protegidas por segredo; depois dela, grave o hash do `ORDERS_RPC_SECRET` — ver o runbook do Asaas. Sem ela, `/admin/pedidos` mostra um aviso e o pagamento pelo site não funciona)
 
 **Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
 mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
@@ -186,8 +190,19 @@ preenchidas com informação real antes de publicar.
      WhatsApp (não há tabela de frete inventada).
   A ação de cotação é pública e consome a cota da conta do Melhor Envio: se houver
   abuso, adicione limite de requisições (WAF/Firewall da Vercel).
-- Ainda não existem: pagamento, pedidos gravados, etiqueta/rastreio e área do cliente
-  (próximas fases, ver `docs/superpowers/specs/`).
+- **Pagamento pelo site (Asaas Checkout)**: com o frete escolhido, o cliente vê Pix, cartão à vista e
+  cartão em até 6x, cada um com o total já com a taxa do meio de pagamento (as taxas do contrato são
+  editáveis em `/admin/pedidos`), informa os dados de entrega e é levado ao checkout do Asaas. O servidor
+  refaz preço, cupom e frete e só entrega o link se o total ainda for o que o cliente viu. O pedido só muda
+  para "pago" pelo webhook do Asaas (`/api/webhooks/asaas`); a volta do checkout não prova pagamento.
+  O dono acompanha e muda o andamento em `/admin/pedidos` (separação, envio com código de rastreio,
+  entrega). O comprador acompanha em `/pedido/<id>?t=<chave>`. **Ligar**: ver
+  [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md).
+- Ainda não existem: e-mails automáticos ao comprador, etiqueta/rastreio automáticos e área do cliente.
+  O site só **cota** o frete; a etiqueta é comprada no painel do Melhor Envio.
+- **Pedido pago com estoque insuficiente** vira "Pago, conferir" (nada é baixado) e aparece em destaque no
+  painel. **Cancelar um pedido pago no painel não devolve o dinheiro**: o estorno é feito no painel do
+  Asaas e o estoque é ajustado à mão.
 - Limites do carrinho: 99 unidades por item e 50 itens diferentes. Cada ação do
   carrinho consulta o catálogo inteiro; com catálogo grande, trocar por consulta
   filtrada e adicionar limite de requisições (WAF) antes de crescer.
@@ -205,6 +220,9 @@ preenchidas com informação real antes de publicar.
 **Textos jurídicos**
 - `/politica-de-privacidade` e `/termos-de-uso` são modelos iniciais e
   precisam de revisão jurídica antes da publicação.
+- **Antes de cobrar pelo site:** parecer do contador sobre repassar a taxa do meio de pagamento ao
+  comprador, e a política de privacidade cobrindo os dados do pedido (nome, e-mail, telefone, endereço),
+  gravados no banco do site e enviados ao Asaas e ao Melhor Envio.
 - **A política de privacidade ainda não cobre a loja**: o CEP de entrega é enviado ao
   Melhor Envio (cálculo do frete) e entra na mensagem do WhatsApp, os dados do pedido
   seguem pelo WhatsApp e o carrinho (só ids e quantidades) fica no navegador. O CEP
@@ -223,7 +241,7 @@ preenchidas com informação real antes de publicar.
 
 ## Próximos passos sugeridos
 
-1. Confirmar o projeto Supabase do CMS, aplicar as 6 migrations e autorizar o
+1. Confirmar o projeto Supabase do CMS, aplicar as 7 migrations e autorizar o
    administrador (seção "Banco de dados e primeiro administrador").
 2. Testar o painel de ponta a ponta contra o banco real (login, CRUD, uploads).
 3. Substituir o conteúdo demonstrativo por formações, conteúdos e depoimentos
