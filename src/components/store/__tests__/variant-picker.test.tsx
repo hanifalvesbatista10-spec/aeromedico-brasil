@@ -8,7 +8,6 @@ const CART_KEY = "aeromedico:cart:v1";
 beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
-const WHATSAPP = "https://wa.me/5585999998888";
 
 const shirt: StoreProduct = {
   id: "p1",
@@ -57,43 +56,32 @@ const images: StoreProductImage[] = [
   { id: "i2", productId: "p1", url: "/branca.jpg", alt: "Foto branca", colorName: "Branca", sortOrder: 1 },
 ];
 
-function renderShirt(whatsappUrl = WHATSAPP, overrides: Partial<StoreProduct> = {}, list = variants) {
-  return render(
-    <VariantPicker
-      product={{ ...shirt, ...overrides }}
-      variants={list}
-      images={images}
-      whatsappUrl={whatsappUrl}
-    />
-  );
+function renderShirt(overrides: Partial<StoreProduct> = {}, list = variants) {
+  return render(<VariantPicker product={{ ...shirt, ...overrides }} variants={list} images={images} />);
 }
 
 function click(name: string | RegExp) {
   fireEvent.click(screen.getByRole("button", { name }));
 }
 
-const buyLink = () => screen.queryByRole("link", { name: /Comprar pelo WhatsApp/ });
+const buyLink = () => screen.queryByRole("link", { name: /whatsapp/i });
 const addButton = () => screen.queryByRole("button", { name: "Adicionar ao carrinho" });
 
 describe("VariantPicker", () => {
   it("começa sem escolha: pede tamanho e cor e mostra o preço inicial", () => {
     renderShirt();
-    expect(buyLink()).toBeNull();
+    expect(addButton()).toBeNull();
     expect(screen.getByText("Escolha o tamanho e a cor")).toBeTruthy();
     expect(screen.getByText(/A partir de/)).toBeTruthy();
   });
 
-  it("com tamanho e cor, libera a compra no WhatsApp com a mensagem do produto", () => {
+  it("com tamanho e cor, a compra é só pelo carrinho: nunca há botão de WhatsApp", () => {
     renderShirt();
     click("P");
     click(/Preta/);
-    const link = buyLink();
-    expect(link).toBeTruthy();
-    expect(link?.getAttribute("href")).toBe(
-      "https://wa.me/5585999998888?text=" +
-        encodeURIComponent("Olá! Quero comprar: Camiseta Aeromédico (P, Preta).")
-    );
-    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(addButton()).toBeTruthy();
+    expect(buyLink()).toBeNull();
+    expect(document.body.innerHTML).not.toContain("wa.me");
   });
 
   it("mostra o preço próprio da variação escolhida", () => {
@@ -107,17 +95,8 @@ describe("VariantPicker", () => {
     renderShirt();
     click("G");
     click(/Preta/);
-    expect(buyLink()).toBeNull();
+    expect(addButton()).toBeNull();
     expect(screen.getByText("Esgotado")).toBeTruthy();
-  });
-
-  it("com o WhatsApp ainda sem número, não há link quebrado, mas o carrinho continua disponível", () => {
-    renderShirt("https://wa.me/");
-    click("P");
-    click(/Preta/);
-    expect(buyLink()).toBeNull();
-    expect(screen.queryByText("Compra em breve")).toBeNull();
-    expect(addButton()).toBeTruthy();
   });
 
   describe("carrinho", () => {
@@ -196,7 +175,7 @@ describe("VariantPicker", () => {
     });
 
     it("produto sem variações adiciona com variantId nulo", () => {
-      renderShirt(WHATSAPP, { hasVariants: false }, []);
+      renderShirt({ hasVariants: false }, []);
       fireEvent.click(addButton()!);
       expect(stored()).toEqual([{ productId: "p1", variantId: null, quantity: 1 }]);
     });
@@ -212,16 +191,14 @@ describe("VariantPicker", () => {
   });
 
   it("produto sem variações vende direto, com o preço base", () => {
-    renderShirt(WHATSAPP, { hasVariants: false }, []);
-    const link = buyLink();
-    expect(link?.getAttribute("href")).toContain(
-      encodeURIComponent("Olá! Quero comprar: Camiseta Aeromédico.")
-    );
+    renderShirt({ hasVariants: false }, []);
+    expect(addButton()).toBeTruthy();
+    expect(buyLink()).toBeNull();
     expect(document.body.textContent?.replace(/ /g, " ")).toContain("R$ 49,90");
   });
 
   it("produto com variações, mas nenhuma publicada, fica indisponível", () => {
-    renderShirt(WHATSAPP, {}, []);
+    renderShirt({}, []);
     expect(buyLink()).toBeNull();
     expect(screen.getByText("Indisponível")).toBeTruthy();
   });
@@ -244,39 +221,37 @@ describe("VariantPicker", () => {
     ];
 
     it("escolher uma cor que não existe no tamanho atual troca a cor e limpa o tamanho", () => {
-      renderShirt(WHATSAPP, {}, grid);
+      renderShirt({}, grid);
       click("P");
       click(/Preta/);
-      expect(buyLink()).toBeTruthy();
+      expect(addButton()).toBeTruthy();
 
       const rosa = screen.getByRole("button", { name: /Rosa/ }) as HTMLButtonElement;
       expect(rosa.disabled).toBe(false);
       fireEvent.click(rosa);
 
-      expect(buyLink()).toBeNull();
+      expect(addButton()).toBeNull();
       expect(screen.getByText("Escolha o tamanho")).toBeTruthy();
 
       click("PP");
-      expect(buyLink()?.getAttribute("href")).toContain(
-        encodeURIComponent("Olá! Quero comprar: Camiseta Aeromédico (PP, Rosa).")
-      );
+      expect(addButton()).toBeTruthy();
     });
 
     it("escolher um tamanho que não existe na cor atual troca o tamanho e limpa a cor", () => {
-      renderShirt(WHATSAPP, {}, grid);
+      renderShirt({}, grid);
       click(/Rosa/);
       click("PP");
-      expect(buyLink()).toBeTruthy();
+      expect(addButton()).toBeTruthy();
 
       const tamanhoP = screen.getByRole("button", { name: "P" }) as HTMLButtonElement;
       expect(tamanhoP.disabled).toBe(false);
       fireEvent.click(tamanhoP);
 
-      expect(buyLink()).toBeNull();
+      expect(addButton()).toBeNull();
       expect(screen.getByText("Escolha a cor")).toBeTruthy();
 
       click(/Preta/);
-      expect(buyLink()).toBeTruthy();
+      expect(addButton()).toBeTruthy();
     });
   });
 });

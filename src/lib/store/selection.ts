@@ -85,12 +85,3 @@ export function imagesForColor(
   const result = [...ofColor, ...general];
   return result.length > 0 ? result : ordered;
 }
-
-export function buildStoreWhatsappMessage(
-  productName: string,
-  size: string | null,
-  colorName: string | null
-): string {
-  const details = [size, colorName].filter(Boolean).join(", ");
-  return `Olá! Quero comprar: ${productName}${details ? ` (${details})` : ""}.`;
-}

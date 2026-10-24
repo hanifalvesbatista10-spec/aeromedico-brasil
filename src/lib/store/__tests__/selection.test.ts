@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildStoreWhatsappMessage,
   fromPriceCents,
   imagesForColor,
   resolveSelection,
@@ -131,22 +130,5 @@ describe("imagesForColor", () => {
 
   it("lista vazia continua vazia", () => {
     expect(imagesForColor([], "Preta")).toEqual([]);
-  });
-});
-
-describe("buildStoreWhatsappMessage", () => {
-  it("inclui tamanho e cor escolhidos", () => {
-    expect(buildStoreWhatsappMessage("Camiseta Aeromédico", "M", "Preta")).toBe(
-      "Olá! Quero comprar: Camiseta Aeromédico (M, Preta)."
-    );
-    expect(buildStoreWhatsappMessage("Camiseta", "M", null)).toBe(
-      "Olá! Quero comprar: Camiseta (M)."
-    );
-  });
-
-  it("sem escolha, só o nome do produto", () => {
-    expect(buildStoreWhatsappMessage("Patch Aeromédico", null, null)).toBe(
-      "Olá! Quero comprar: Patch Aeromédico."
-    );
   });
 });

@@ -21,7 +21,9 @@ O botão "Pagar" só aparece quando **todas** estas variáveis existem (função
 | `NEXT_PUBLIC_SITE_URL` | Endereço público do site (volta do pagamento) |
 | `MELHOR_ENVIO_TOKEN`, `STORE_ORIGIN_CEP`, `MELHOR_ENVIO_CONTACT_EMAIL` | Frete; sem ele não há cotação |
 
-Faltando qualquer uma, o carrinho continua só com o WhatsApp. Dá para ligar aos poucos.
+Faltando qualquer uma, o carrinho não finaliza: ele calcula o subtotal e o frete (se o frete estiver
+ligado) e avisa que o pagamento ainda não está disponível. Não há compra por WhatsApp. Dá para ligar
+aos poucos.
 
 ## 1. Banco (uma vez)
 
@@ -147,8 +149,8 @@ Sem o cabeçalho (ou com token errado) a resposta é `401`. Repetir o mesmo `id`
 6. Melhor Envio: token da conta real (só a permissão `shipping-calculate`), `MELHOR_ENVIO_ENV=production`,
    CEP de origem real e e-mail do cliente.
 7. Conferir as taxas em `/admin/pedidos` (seção "Taxas de pagamento") com o contrato real do Asaas.
-8. Antes de divulgar: número real do WhatsApp em `/admin/configuracoes`, política de privacidade
-   atualizada (CEP, dados de entrega, WhatsApp, Asaas) e o parecer do contador sobre repassar a taxa ao
+8. Antes de divulgar: política de privacidade
+   atualizada (CEP, dados de entrega, Asaas, Melhor Envio) e o parecer do contador sobre repassar a taxa ao
    comprador.
 9. **Troque o segredo dos pedidos**: gere um `ORDERS_RPC_SECRET` novo, coloque-o na Vercel (Production) e
    regrave o hash no banco (passo 3 de "Banco"), no mesmo momento. O valor do desenvolvimento não deve

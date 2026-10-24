@@ -52,10 +52,7 @@ export default async function ProdutoPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [detail, settings] = await Promise.all([
-    loadVisibleProduct(slug),
-    getRepositories().settings.get(),
-  ]);
+  const detail = await loadVisibleProduct(slug);
   if (!detail) notFound();
 
   return (
@@ -71,7 +68,6 @@ export default async function ProdutoPage({
           product={detail.product}
           variants={publishedVariants(detail.variants)}
           images={detail.images}
-          whatsappUrl={settings.whatsappUrl}
         />
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
@@ -14,10 +14,8 @@ import { priceCartAction } from "@/lib/actions/cart";
 import { MAX_LINE_QUANTITY, lineKey, serializeCart } from "@/lib/cart/cart";
 import { evaluateCoupon, type CartCoupon } from "@/lib/cart/coupon";
 import type { PricedCart, PricedLine } from "@/lib/cart/pricing";
-import { buildCartWhatsappMessage } from "@/lib/cart/whatsapp-message";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { buildWhatsappLink } from "@/lib/utils/whatsapp";
 
 type LoadState =
   | { status: "loading" }
@@ -53,15 +51,10 @@ function describeLine(line: { name: string; size?: string | null; colorName?: st
  * Carrinho do cliente. O navegador guarda só ids e quantidades; nome, foto,
  * preço e disponibilidade vêm do servidor (`priceCartAction`) a cada mudança.
  * Com o pagamento pelo site ligado (`checkoutEnabled`) e o frete escolhido, a
- * finalização é o `CartCheckout`; do contrário continua pelo WhatsApp do cliente.
+ * finalização é o `CartCheckout`, que cria o pedido e leva ao pagamento. Sem o
+ * pagamento ligado, o carrinho só avisa que ainda não está disponível.
  */
-export function CartView({
-  whatsappUrl,
-  checkoutEnabled = false,
-}: {
-  whatsappUrl: string;
-  checkoutEnabled?: boolean;
-}) {
+export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolean }) {
   const cart = useCart();
   // O servidor não conhece o localStorage: antes de hidratar não dá para dizer "vazio".
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -288,31 +281,6 @@ export function CartView({
     // O pagamento só abre com frete escolhido e itens válidos; cupom só vai se ainda vale.
     const payOnSite = checkoutEnabled && shipping !== null && lines.length > 0;
     const checkoutCouponCode = coupon && evaluation?.ok ? coupon.code : null;
-
-    const whatsappHref =
-      lines.length > 0
-        ? buildWhatsappLink(
-            whatsappUrl,
-            buildCartWhatsappMessage(
-              lines,
-              subtotalCents,
-              {
-                ...(coupon && discountCents > 0
-                  ? { coupon: { code: coupon.code, discountCents } }
-                  : {}),
-                ...(shipping
-                  ? {
-                      shipping: {
-                        label: shipping.label,
-                        cep: shipping.cep,
-                        priceCents: shipping.priceCents,
-                      },
-                    }
-                  : {}),
-              }
-            )
-          )
-        : null;
 
     return (
       <div className="grid gap-10 lg:grid-cols-[1fr_20rem]">
@@ -554,57 +522,15 @@ export function CartView({
           )}
 
           {payOnSite && shipping ? (
-            <>
-              <CartCheckout lines={cart.lines} couponCode={checkoutCouponCode} shipping={shipping} />
-              {whatsappHref && (
-                <p className="mt-4 text-sm text-gray-600">
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(textAction, "px-0")}
-                  >
-                    Prefere finalizar pelo WhatsApp?
-                    <span className="sr-only"> (abre em nova aba)</span>
-                  </a>
-                </p>
-              )}
-            </>
+            <CartCheckout lines={cart.lines} couponCode={checkoutCouponCode} shipping={shipping} />
           ) : (
-            <>
-              <p className="mt-3 text-sm text-gray-600">
-                {checkoutEnabled
-                  ? "Calcule o frete para pagar pelo site. Se preferir, finalize pelo WhatsApp."
-                  : shipping
-                    ? "A forma de pagamento é combinada no WhatsApp."
-                    : "O frete e a forma de pagamento são combinados no WhatsApp."}
-              </p>
-              <div className="mt-5">
-                {whatsappHref ? (
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(buttonVariants({ size: "lg" }), "h-11 w-full")}
-                  >
-                    Finalizar pelo WhatsApp
-                    <span className="sr-only"> (abre em nova aba)</span>
-                  </a>
-                ) : (
-                  <span
-                    aria-disabled="true"
-                    className={cn(
-                      buttonVariants({ size: "lg", variant: "outline" }),
-                      "pointer-events-none h-11 w-full opacity-60"
-                    )}
-                  >
-                    {lines.length > 0
-                      ? "Não foi possível abrir o WhatsApp agora"
-                      : "Nenhum item disponível para finalizar"}
-                  </span>
-                )}
-              </div>
-            </>
+            <p className="mt-4 text-sm text-gray-600">
+              {lines.length === 0
+                ? "Nenhum item disponível para finalizar."
+                : !checkoutEnabled
+                  ? "O pagamento pelo site ainda não está disponível. Volte em breve."
+                  : "Calcule o frete para escolher a forma de pagamento e finalizar o pedido."}
+            </p>
           )}
         </aside>
       </div>

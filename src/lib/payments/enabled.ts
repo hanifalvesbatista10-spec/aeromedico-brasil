@@ -5,7 +5,7 @@ import { getAsaasConfig } from "./asaas";
 /**
  * O pagamento pelo site só aparece quando TUDO está configurado: Asaas, frete,
  * segredo das funções de pedido e endereço do site (retorno do checkout).
- * Caso contrário o carrinho continua oferecendo só o WhatsApp.
+ * Caso contrário o carrinho só avisa que o pagamento ainda não está disponível.
  */
 export function isCheckoutEnabled(): boolean {
   return (

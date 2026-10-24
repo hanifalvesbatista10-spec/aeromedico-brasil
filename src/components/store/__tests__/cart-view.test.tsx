@@ -23,7 +23,6 @@ vi.mock("@/lib/actions/checkout", () => ({
 import { CartView } from "../cart-view";
 
 const KEY = "aeromedico:cart:v1";
-const WHATSAPP = "https://wa.me/5585999998888";
 
 type StoredLine = { productId: string; variantId: string | null; quantity: number };
 const stored = (): StoredLine[] => JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
@@ -93,7 +92,7 @@ afterEach(cleanup);
 
 describe("CartView", () => {
   it("carrinho vazio mostra o estado vazio e não chama o servidor", () => {
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     expect(screen.getByText("Seu carrinho está vazio.")).toBeTruthy();
     expect(screen.getByRole("link", { name: /ver a loja/i }).getAttribute("href")).toBe("/loja");
     expect(priceCartAction).not.toHaveBeenCalled();
@@ -102,7 +101,7 @@ describe("CartView", () => {
   it("mostra item, variação, total da linha e subtotal vindos do servidor", async () => {
     seed([shirt(2), cap(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     expect(await screen.findByText("Camiseta Aeromédico")).toBeTruthy();
     expect(screen.getByText("M, Preta")).toBeTruthy();
@@ -116,7 +115,7 @@ describe("CartView", () => {
   it("'+' grava a nova quantidade e precifica de novo", async () => {
     seed([shirt(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
@@ -129,7 +128,7 @@ describe("CartView", () => {
   it("'+' fica desabilitado no limite do estoque e '−' na quantidade 1", async () => {
     seed([shirt(3)]);
     fakeServer({ "camiseta:m-preta": 3 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
@@ -138,7 +137,7 @@ describe("CartView", () => {
     seed([shirt(1)]);
     cleanup();
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     const minus = screen.getByRole("button", { name: "Diminuir quantidade de Camiseta Aeromédico, M, Preta" });
     expect(minus.getAttribute("aria-disabled")).toBe("true");
@@ -147,7 +146,7 @@ describe("CartView", () => {
   it("Remover tira a linha e volta ao estado vazio", async () => {
     seed([shirt(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     fireEvent.click(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" }));
@@ -159,7 +158,7 @@ describe("CartView", () => {
   it("estoque menor que o pedido: avisa e corrige a quantidade guardada", async () => {
     seed([shirt(5)]);
     fakeServer({ "camiseta:m-preta": 2 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     expect(await screen.findByText("Só temos 2 unidades disponíveis. Ajustamos a quantidade.")).toBeTruthy();
     await waitFor(() => expect(stored()[0].quantity).toBe(2));
@@ -178,7 +177,7 @@ describe("CartView", () => {
         [{ key: "camiseta:m-preta", productId: "camiseta", variantId: "m-preta", reason: "sold-out", name: "Camiseta Aeromédico" }]
       ),
     });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     const block = await screen.findByRole("region", { name: "Estes itens não estão mais disponíveis" });
     expect(within(block).getByText(/Camiseta Aeromédico/)).toBeTruthy();
@@ -189,34 +188,10 @@ describe("CartView", () => {
     expect(stored()).toEqual([cap(1)]);
   });
 
-  it("o link do WhatsApp leva o pedido só com os itens válidos", async () => {
-    seed([cap(2)]);
-    fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
-    const link = await screen.findByRole("link", { name: /Finalizar pelo WhatsApp/ });
-
-    const href = link.getAttribute("href")!;
-    expect(href.startsWith("https://wa.me/5585999998888?text=")).toBe(true);
-    const text = decodeURIComponent(href.split("?text=")[1]);
-    expect(text).toContain("- 2x Boné: R$ 40,00");
-    expect(text).toContain("Subtotal: R$ 40,00");
-    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(link.getAttribute("target")).toBe("_blank");
-  });
-
-  it("WhatsApp ainda sem número: botão desabilitado, nunca link quebrado", async () => {
-    seed([cap(1)]);
-    fakeServer();
-    render(<CartView whatsappUrl="https://wa.me/" />);
-    await screen.findByText("Boné");
-    expect(screen.queryByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeNull();
-    expect(screen.getByText("Não foi possível abrir o WhatsApp agora")).toBeTruthy();
-  });
-
   it("falha do servidor mostra alerta e 'Tentar de novo' refaz a chamada", async () => {
     seed([cap(1)]);
     priceCartAction.mockResolvedValueOnce({ ok: false, error: "Não foi possível carregar o carrinho agora. Tente de novo." });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     expect((await screen.findByRole("alert")).textContent).toContain("Não foi possível carregar o carrinho agora.");
 
@@ -229,7 +204,7 @@ describe("CartView", () => {
   it("erro de leitura oferece 'Esvaziar carrinho' como saída", async () => {
     seed([cap(1)]);
     priceCartAction.mockResolvedValue({ ok: false, error: "Não foi possível ler os itens do carrinho." });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Esvaziar carrinho" }));
@@ -240,7 +215,7 @@ describe("CartView", () => {
 
   it("antes de hidratar, quem tem itens vê 'Carregando', nunca 'vazio'", () => {
     seed([shirt(1)]);
-    const html = renderToString(<CartView whatsappUrl={WHATSAPP} />);
+    const html = renderToString(<CartView />);
     expect(html).toContain("Carregando seu carrinho");
     expect(html).not.toContain("Seu carrinho está vazio.");
   });
@@ -248,7 +223,7 @@ describe("CartView", () => {
   it("variações do mesmo produto têm botões com nomes diferentes", async () => {
     seed([shirt(1), shirtG(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findAllByText("Camiseta Aeromédico");
 
     expect(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" })).toBeTruthy();
@@ -259,7 +234,7 @@ describe("CartView", () => {
   it("remover anuncia o que saiu e mantém o foco dentro do carrinho", async () => {
     seed([shirt(1), cap(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     fireEvent.click(screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" }));
@@ -273,7 +248,7 @@ describe("CartView", () => {
   it("'+' no limite não faz nada e continua focável (aria-disabled, sem disabled)", async () => {
     seed([shirt(3)]);
     fakeServer({ "camiseta:m-preta": 3 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }) as HTMLButtonElement;
@@ -285,7 +260,7 @@ describe("CartView", () => {
   it("'+' em 99 unidades sem limite de estoque também não faz nada", async () => {
     seed([shirt(99)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
@@ -297,22 +272,20 @@ describe("CartView", () => {
   it("alvos de toque de 44px nos controles do carrinho", async () => {
     seed([shirt(2)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     const plus = screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" });
     const remove = screen.getByRole("button", { name: "Remover Camiseta Aeromédico, M, Preta" });
-    const checkout = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ });
     expect(plus.className).toContain("size-11");
     expect(remove.className).toContain("min-h-11");
-    expect(checkout.className).toContain("h-11");
   });
 
   it("respostas fora de ordem: vale a mais recente", async () => {
     seed([cap(1)]);
     let releaseFirst!: (value: unknown) => void;
     priceCartAction.mockImplementationOnce(() => new Promise((resolve) => { releaseFirst = resolve; }));
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
 
     // A segunda chamada (carrinho mudou) responde antes da primeira.
     fakeServer();
@@ -349,7 +322,7 @@ describe("CartView com cupom", () => {
   it("há campo de cupom e botão Aplicar quando o carrinho tem itens", async () => {
     seed([shirt(2)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     expect(screen.getByLabelText("Cupom de desconto")).toBeTruthy();
     const apply = screen.getByRole("button", { name: "Aplicar" }) as HTMLButtonElement;
@@ -371,7 +344,7 @@ describe("CartView com cupom", () => {
         [{ key: "camiseta:m-preta", productId: "camiseta", variantId: "m-preta", reason: "removed", name: null }]
       ),
     });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByRole("region", { name: "Estes itens não estão mais disponíveis" });
     expect(screen.queryByLabelText("Cupom de desconto")).toBeNull();
     expect(screen.queryByLabelText("CEP de entrega")).toBeNull();
@@ -380,7 +353,7 @@ describe("CartView com cupom", () => {
   it("aplicar envia o código, mostra o desconto e o total", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     await applyCode();
@@ -394,7 +367,7 @@ describe("CartView com cupom", () => {
   it("mexer na quantidade recalcula desconto e total na hora, antes da nova resposta", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -410,7 +383,7 @@ describe("CartView com cupom", () => {
   it("cair abaixo do pedido mínimo tira o desconto e explica o mínimo", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: { ...VERAO10, minOrderCents: 9000 } });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -429,7 +402,7 @@ describe("CartView com cupom", () => {
   it("mensagem do servidor sobre o código aparece em alerta, sem derrubar o carrinho", async () => {
     seed([shirt(1)]);
     fakeServer({}, { couponError: "Cupom não encontrado." });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     await applyCode("naoexiste");
@@ -442,7 +415,7 @@ describe("CartView com cupom", () => {
   it("'Remover cupom' volta a precificar sem código", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -455,19 +428,6 @@ describe("CartView com cupom", () => {
     expect(screen.getByLabelText("Cupom de desconto")).toBeTruthy();
   });
 
-  it("o link do WhatsApp leva o cupom e o total", async () => {
-    seed([shirt(2)]);
-    fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
-    await screen.findByText("Camiseta Aeromédico");
-    await applyCode();
-    await screen.findByText("Cupom VERAO10 aplicado");
-
-    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
-    const text = decodeURIComponent(href.split("?text=")[1]);
-    expect(text).toContain("Cupom VERAO10: -R$ 9,98");
-    expect(text).toContain("Total: R$ 89,82");
-  });
 });
 
 const checkoutQuote = {
@@ -490,7 +450,7 @@ function calculate(cep = "01018020") {
 async function renderWithShirts(quantity = 2, coupon = false) {
   seed([shirt(quantity)]);
   fakeServer({}, coupon ? { coupon: VERAO10 } : {});
-  render(<CartView whatsappUrl={WHATSAPP} />);
+  render(<CartView />);
   await screen.findByText("Camiseta Aeromédico");
 }
 
@@ -500,7 +460,7 @@ describe("CartView: cupom, ajustes da revisão", () => {
   it("tentar de novo o mesmo código recusado volta a consultar o servidor", async () => {
     seed([shirt(1)]);
     fakeServer({}, { couponError: "Cupom não encontrado." });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     await applyCode("naoexiste");
@@ -515,7 +475,7 @@ describe("CartView: cupom, ajustes da revisão", () => {
   it("apagar o campo depois de um código recusado tira o código e o alerta", async () => {
     seed([shirt(1)]);
     fakeServer({}, { couponError: "Cupom não encontrado." });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode("naoexiste");
     await screen.findByRole("alert");
@@ -529,7 +489,7 @@ describe("CartView: cupom, ajustes da revisão", () => {
   it("'Remover cupom' tira o desconto na hora, antes da resposta do servidor", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -539,14 +499,12 @@ describe("CartView: cupom, ajustes da revisão", () => {
 
     expect(screen.queryByTestId("cart-discount")).toBeNull();
     expect(screen.queryByText("Cupom VERAO10 aplicado")).toBeNull();
-    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
-    expect(decodeURIComponent(href)).not.toContain("Cupom VERAO10");
   });
 
   it("enquanto o cupom é verificado o botão diz 'Aplicando…' e não envia de novo", async () => {
     seed([shirt(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
 
     priceCartAction.mockImplementation(() => new Promise(() => {}));
@@ -562,7 +520,7 @@ describe("CartView: cupom, ajustes da revisão", () => {
   it("aplicar e remover são anunciados, e o foco não se perde", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: VERAO10 });
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -581,7 +539,7 @@ describe("CartView: cupom, ajustes da revisão", () => {
   it("campos e botões novos têm contorno de foco próprio", async () => {
     seed([shirt(1)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} />);
+    render(<CartView />);
     await screen.findByText("Camiseta Aeromédico");
     for (const element of [
       screen.getByLabelText("Cupom de desconto"),
@@ -685,16 +643,16 @@ describe("CartView com frete", () => {
     expect(screen.getAllByText("O carrinho mudou. Calcule o frete de novo.").length).toBeGreaterThan(0);
   });
 
-  it("frete não configurado: aviso em status, sem opções, e o frete continua combinado no WhatsApp", async () => {
+  it("frete não configurado: aviso em status e sem opções", async () => {
     await renderWithShirts();
     quoteShippingAction.mockResolvedValue({
       ok: false,
       code: "unconfigured",
-      error: "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp.",
+      error: "O cálculo do frete não está disponível no momento. Tente de novo mais tarde.",
     });
     calculate();
 
-    const note = await screen.findByText(/O cálculo automático do frete não está disponível no momento/);
+    const note = await screen.findByText(/O cálculo do frete não está disponível no momento/);
     expect(note.getAttribute("role")).toBe("status");
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
   });
@@ -713,18 +671,6 @@ describe("CartView com frete", () => {
     expect(screen.getByText("Camiseta Aeromédico")).toBeTruthy();
   });
 
-  it("o link do WhatsApp leva o frete, o total e a pergunta só sobre pagamento", async () => {
-    await renderWithShirts();
-    quoteShippingAction.mockResolvedValue(quoteOk());
-    calculate();
-    await screen.findByRole("group", { name: "Opções de entrega" });
-
-    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
-    const text = decodeURIComponent(href.split("?text=")[1]);
-    expect(text).toContain("Frete (Correios PAC, CEP 01018-020): R$ 23,45");
-    expect(text).toContain("Total: R$ 123,25");
-    expect(text).toContain("Pode me passar as formas de pagamento?");
-  });
 });
 
 
@@ -755,8 +701,6 @@ describe("CartView: frete, ajustes da revisão", () => {
 
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
     expect(screen.queryByTestId("cart-shipping")).toBeNull();
-    const href = screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ }).getAttribute("href")!;
-    expect(decodeURIComponent(href)).not.toContain("Frete (");
   });
 
   it("cotar, escolher e carrinho mudado são anunciados", async () => {
@@ -808,37 +752,36 @@ describe("CartView: pagamento pelo site", () => {
   async function renderEnabled(quantity = 2, coupon = false) {
     seed([shirt(quantity)]);
     fakeServer({}, coupon ? { coupon: VERAO10 } : {});
-    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    render(<CartView checkoutEnabled />);
     await screen.findByText("Camiseta Aeromédico");
   }
 
-  it("desligado (padrão): com o frete escolhido, continua só o WhatsApp", async () => {
+  it("desligado (padrão): com o frete escolhido, avisa que o pagamento ainda não está disponível", async () => {
     await renderWithShirts();
     calculate();
     await screen.findByRole("group", { name: "Opções de entrega" });
 
     expect(screen.queryByTestId("cart-checkout")).toBeNull();
     expect(quoteCheckoutAction).not.toHaveBeenCalled();
-    expect(screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeTruthy();
+    expect(screen.getByText("O pagamento pelo site ainda não está disponível. Volte em breve.")).toBeTruthy();
   });
 
-  it("ligado, mas sem frete escolhido: pede o frete e mantém o WhatsApp como saída", async () => {
+  it("ligado, mas sem frete escolhido: pede o frete para finalizar o pedido", async () => {
     await renderEnabled();
 
     expect(screen.queryByTestId("cart-checkout")).toBeNull();
     expect(quoteCheckoutAction).not.toHaveBeenCalled();
-    expect(screen.getByText(/Calcule o frete para pagar pelo site/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeTruthy();
+    expect(
+      screen.getByText("Calcule o frete para escolher a forma de pagamento e finalizar o pedido.")
+    ).toBeTruthy();
   });
 
-  it("ligado e com o frete escolhido: mostra o pagamento no lugar do WhatsApp e cota no servidor", async () => {
+  it("ligado e com o frete escolhido: mostra o pagamento e cota no servidor", async () => {
     await renderEnabled();
     calculate();
 
     await screen.findByRole("group", { name: "Forma de pagamento" });
     expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /Finalizar pelo WhatsApp/ })).toBeNull();
-    expect(screen.queryByText(/combinad[oa]s? no WhatsApp/)).toBeNull();
     expect(quoteCheckoutAction).toHaveBeenCalledWith({
       lines: [shirt(2)],
       couponCode: null,
@@ -862,7 +805,7 @@ describe("CartView: pagamento pelo site", () => {
   it("cupom que deixou de valer (abaixo do mínimo) não vai na cotação", async () => {
     seed([shirt(2)]);
     fakeServer({}, { coupon: { ...VERAO10, minOrderCents: 9000 } });
-    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    render(<CartView checkoutEnabled />);
     await screen.findByText("Camiseta Aeromédico");
     await applyCode();
     await screen.findByText("Cupom VERAO10 aplicado");
@@ -899,7 +842,9 @@ describe("CartView: pagamento pelo site", () => {
     fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
 
     await waitFor(() => expect(screen.queryByTestId("cart-checkout")).toBeNull());
-    expect(screen.getByText(/Calcule o frete para pagar pelo site/)).toBeTruthy();
+    expect(
+      screen.getByText("Calcule o frete para escolher a forma de pagamento e finalizar o pedido.")
+    ).toBeTruthy();
   });
 });
 
@@ -911,27 +856,60 @@ describe("CartView: pagamento pelo site, ajustes da revisão", () => {
     quoteShippingAction.mockResolvedValue(quoteOk());
   });
 
-  it("com o pagamento no ar, o WhatsApp continua como saída discreta", async () => {
-    seed([shirt(2)]);
-    fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
-    await screen.findByText("Camiseta Aeromédico");
-    calculate();
-    await screen.findByRole("group", { name: "Forma de pagamento" });
-
-    const link = screen.getByRole("link", { name: /Prefere finalizar pelo WhatsApp/ });
-    expect(link.getAttribute("href")).toContain("wa.me");
-    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
-  });
-
   it("o total do resumo avisa que ainda não inclui a taxa do pagamento", async () => {
     seed([shirt(2)]);
     fakeServer();
-    render(<CartView whatsappUrl={WHATSAPP} checkoutEnabled />);
+    render(<CartView checkoutEnabled />);
     await screen.findByText("Camiseta Aeromédico");
     calculate();
     await screen.findByRole("group", { name: "Forma de pagamento" });
 
     expect(screen.getByText("Total sem a taxa do pagamento")).toBeTruthy();
+  });
+});
+
+describe("CartView: só pedido, sem WhatsApp", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  const noWhatsapp = () => {
+    expect(screen.queryByRole("link", { name: /whatsapp/i })).toBeNull();
+    expect(document.body.innerHTML).not.toContain("wa.me");
+    expect(document.body.textContent).not.toMatch(/whatsapp/i);
+  };
+
+  it("sem pagamento ligado, o carrinho não oferece WhatsApp e diz que o pagamento ainda não está disponível", async () => {
+    await renderWithShirts();
+    expect(screen.getByText("O pagamento pelo site ainda não está disponível. Volte em breve.")).toBeTruthy();
+    noWhatsapp();
+  });
+
+  it("com o pagamento ligado, também não há WhatsApp: o caminho é Pagar", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
+    noWhatsapp();
+  });
+
+  it("itens todos indisponíveis: não há o que finalizar", async () => {
+    seed([cap(1)]);
+    priceCartAction.mockResolvedValue({
+      ok: true,
+      cart: cartOf([], [{ key: "bone:-", productId: "bone", variantId: null, reason: "sold-out", name: "Boné" }]),
+      coupon: null,
+      couponError: null,
+    });
+    render(<CartView checkoutEnabled />);
+    await screen.findByText(/Boné/);
+    expect(screen.getByText("Nenhum item disponível para finalizar.")).toBeTruthy();
+    expect(screen.queryByTestId("cart-checkout")).toBeNull();
   });
 });

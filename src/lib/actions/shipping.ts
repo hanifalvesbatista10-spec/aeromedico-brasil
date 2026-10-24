@@ -54,7 +54,7 @@ export async function quoteShippingAction(
   if (!provider) {
     return fail(
       "unconfigured",
-      "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp."
+      "O cálculo do frete não está disponível no momento. Tente de novo mais tarde."
     );
   }
 

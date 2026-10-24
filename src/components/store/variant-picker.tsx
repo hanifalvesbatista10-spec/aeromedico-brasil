@@ -8,12 +8,7 @@ import { useCart } from "@/hooks/use-cart";
 import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineKey } from "@/lib/cart/cart";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/money";
-import { buildWhatsappLink } from "@/lib/utils/whatsapp";
-import {
-  buildStoreWhatsappMessage,
-  imagesForColor,
-  resolveSelection,
-} from "@/lib/store/selection";
+import { imagesForColor, resolveSelection } from "@/lib/store/selection";
 import {
   publishedVariants,
   variantAvailability,
@@ -34,20 +29,17 @@ function statusLabel(status: string, missingSize: boolean, missingColor: boolean
 }
 
 /**
- * Galeria, escolha de tamanho/cor, preço e compra de um produto: adiciona ao
- * carrinho e, se o WhatsApp do cliente estiver configurado, também permite
- * comprar só este item por lá.
+ * Galeria, escolha de tamanho/cor, preço e compra de um produto: a compra é só
+ * pelo carrinho, que cria o pedido.
  */
 export function VariantPicker({
   product,
   variants,
   images,
-  whatsappUrl,
 }: {
   product: StoreProduct;
   variants: StoreVariant[];
   images: StoreProductImage[];
-  whatsappUrl: string;
 }) {
   const published = publishedVariants(variants);
   const options = variantOptions(published);
@@ -72,14 +64,6 @@ export function VariantPicker({
 
   const prices = new Set(published.map((v) => v.priceCents ?? product.basePriceCents));
   const showFrom = selection.status === "incomplete" && prices.size > 1;
-
-  const whatsappHref =
-    selection.status === "ready"
-      ? buildWhatsappLink(
-          whatsappUrl,
-          buildStoreWhatsappMessage(product.name, size, colorName)
-        )
-      : null;
 
   const cartLine = {
     productId: product.id,
@@ -270,25 +254,9 @@ export function VariantPicker({
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           {selection.status === "ready" ? (
-            <>
-              <Button size="lg" onClick={addToCart} className="h-11 w-full sm:w-auto">
-                Adicionar ao carrinho
-              </Button>
-              {whatsappHref && (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ size: "lg", variant: "outline" }),
-                    "h-11 w-full sm:w-auto"
-                  )}
-                >
-                  Comprar pelo WhatsApp
-                  <span className="sr-only"> (abre em nova aba)</span>
-                </a>
-              )}
-            </>
+            <Button size="lg" onClick={addToCart} className="h-11 w-full sm:w-auto">
+              Adicionar ao carrinho
+            </Button>
           ) : (
             <span
               aria-disabled="true"

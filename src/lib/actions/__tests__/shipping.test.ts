@@ -93,7 +93,7 @@ describe("quoteShippingAction", () => {
     expect(await quoteShippingAction(oneCap, "01018-020")).toEqual({
       ok: false,
       code: "unconfigured",
-      error: "O cálculo automático do frete não está disponível no momento. O frete é combinado no WhatsApp.",
+      error: "O cálculo do frete não está disponível no momento. Tente de novo mais tarde.",
     });
     expect(listProductDetails).not.toHaveBeenCalled();
   });

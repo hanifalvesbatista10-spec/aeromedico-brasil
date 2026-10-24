@@ -39,7 +39,7 @@ Preencha `.env.local`:
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública do site (metadata, sitemap e JSON-LD). Local: `http://localhost:3000`. |
 | `NEXT_PUBLIC_GA_ID` / `NEXT_PUBLIC_META_PIXEL_ID` | Não | Os scripts de analytics só carregam se a variável existir. |
 | `MELHOR_ENVIO_TOKEN`, `STORE_ORIGIN_CEP`, `MELHOR_ENVIO_CONTACT_EMAIL`, `MELHOR_ENVIO_ENV` | Não | Frete automático do carrinho (Melhor Envio). **Só servidor** (sem `NEXT_PUBLIC`). Precisam estar as três primeiras para o frete calcular; `MELHOR_ENVIO_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). Passo a passo na seção da loja. |
-| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_ENV`, `ORDERS_RPC_SECRET` | Não | Pagamento pelo site (Asaas Checkout). **Só servidor.** O botão "Pagar" só aparece com as quatro definidas **mais** o frete e `NEXT_PUBLIC_SITE_URL`; senão o carrinho segue pelo WhatsApp. `ASAAS_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). `ORDERS_RPC_SECRET` deve ser o mesmo valor cujo hash está no banco. Roteiro em [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md). |
+| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_ENV`, `ORDERS_RPC_SECRET` | Não | Pagamento pelo site (Asaas Checkout). **Só servidor.** O botão "Pagar" só aparece com as quatro definidas **mais** o frete e `NEXT_PUBLIC_SITE_URL`; senão o carrinho avisa que o pagamento ainda não está disponível. `ASAAS_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). `ORDERS_RPC_SECRET` deve ser o mesmo valor cujo hash está no banco. Roteiro em [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md). |
 
 Sem as duas variáveis do Supabase, a leitura de conteúdo e o painel falham com
 um erro explícito (`src/lib/supabase/env.ts`); não há fallback silencioso para
@@ -167,11 +167,9 @@ preenchidas com informação real antes de publicar.
   Faltam as fotos reais de cada cor.
 - **Carrinho pronto** (`/carrinho`, ícone no cabeçalho, botão "Adicionar ao carrinho"
   em cada produto). O navegador guarda só ids e quantidades; nome, foto, preço e
-  estoque vêm do servidor. A finalização é pelo WhatsApp do cliente, com o pedido
-  escrito na mensagem.
-- **Atenção do dono:** o texto que chega no WhatsApp é editável pelo cliente antes de
-  enviar. Confira sempre preço e estoque no painel antes de cobrar. Quando existirem
-  pedidos gravados no servidor, a mensagem passa a levar só um código de referência.
+  estoque vêm do servidor. A finalização é um **pedido**: ao clicar em "Pagar" o site cria o
+  pedido e leva ao pagamento (veja "Pagamento pelo site" abaixo). Não há compra por
+  WhatsApp no carrinho nem na página do produto.
 - **Cupons** (`/admin/cupons`): percentual ou valor fixo, validade, pedido mínimo e
   limite de usos; um cupom por pedido. O visitante não consegue listar cupons: o
   código é validado por uma função SQL que devolve um único cupom ativo. O
@@ -187,8 +185,8 @@ preenchidas com informação real antes de publicar.
   2. Na Vercel (Settings → Environment Variables), defina `MELHOR_ENVIO_TOKEN`,
      `STORE_ORIGIN_CEP` (CEP de onde a loja despacha), `MELHOR_ENVIO_CONTACT_EMAIL` e,
      na conta real, `MELHOR_ENVIO_ENV=production`. Refaça o deploy.
-  3. Sem as variáveis o carrinho continua funcionando e o frete segue combinado no
-     WhatsApp (não há tabela de frete inventada).
+  3. Sem as variáveis o carrinho não calcula frete e avisa que o cálculo não está disponível
+     (não há tabela de frete inventada).
   A ação de cotação é pública e consome a cota da conta do Melhor Envio: se houver
   abuso, adicione limite de requisições (WAF/Firewall da Vercel).
 - **Pagamento pelo site (Asaas Checkout)**: com o frete escolhido, o cliente vê Pix, cartão à vista e
@@ -218,8 +216,8 @@ preenchidas com informação real antes de publicar.
   salvamentos.
 
 **Contato**
-- `whatsapp_url` no seed (e em `src/data/settings.ts`) é o placeholder
-  `https://wa.me/`: falta o número real.
+- `whatsapp_url` (em `/admin/configuracoes`) alimenta só os links de contato e dúvidas, não
+  a compra. Já está com o número do cliente.
 - Confirmar o e-mail de contato (`contato@aeromedicobrasil.com.br` é
   placeholder).
 
