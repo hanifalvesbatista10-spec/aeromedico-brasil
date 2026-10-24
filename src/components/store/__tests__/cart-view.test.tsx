@@ -875,6 +875,32 @@ describe("CartView: pagamento pelo site, ajustes da revisão", () => {
   });
 });
 
+describe("CartView: dados de entrega preservados", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  it("o que o cliente digitou não se perde quando ele mexe no carrinho (o frete some) e calcula o frete de novo", async () => {
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    fireEvent.change(screen.getByLabelText("Nome completo"), { target: { value: "Maria Silva" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
+    await waitFor(() => expect(screen.queryByLabelText("Nome completo")).toBeNull());
+
+    calculate();
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect((screen.getByLabelText("Nome completo") as HTMLInputElement).value).toBe("Maria Silva");
+  });
+});
+
 describe("CartView: só pedido, sem WhatsApp", () => {
   beforeEach(() => {
     quoteShippingAction.mockReset();

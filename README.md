@@ -60,6 +60,7 @@ ordem:
 6. `20261020120000_store_coupons.sql` (cupons de desconto; sem ela o carrinho funciona e o campo de cupom responde "Não foi possível verificar o cupom agora.")
 7. `20261022120000_store_orders.sql` (pedidos, taxas do Asaas e funções protegidas por segredo; depois dela, grave o hash do `ORDERS_RPC_SECRET` — ver o runbook do Asaas. Sem ela, `/admin/pedidos` mostra um aviso e o pagamento pelo site não funciona)
 8. `20261023120000_store_orders_hardening.sql` (ambiente do pedido, pagamento que chega depois de cancelado e trava de estoque)
+9. `20261024120000_store_pix_discount.sql` (desconto no Pix no lugar da taxa repassada: colunas `pix_discount_bp` e `pix_discount_cents`, nova conta do total e funções do pedido; aplique **antes** de ligar o pagamento)
 
 **Aplique a migration 5 ANTES de publicar o site.** Sem as tabelas da loja, `/loja`
 mostra "a loja abre em breve", `/loja/[slug]` dá 404 e o painel `/admin/loja` falha.
@@ -190,9 +191,11 @@ preenchidas com informação real antes de publicar.
   A ação de cotação é pública e consome a cota da conta do Melhor Envio: se houver
   abuso, adicione limite de requisições (WAF/Firewall da Vercel).
 - **Pagamento pelo site (Asaas Checkout)**: com o frete escolhido, o cliente vê Pix, cartão à vista e
-  cartão em até 6x, cada um com o total já com a taxa do meio de pagamento (as taxas do contrato são
-  editáveis em `/admin/pedidos`), informa os dados de entrega e é levado ao checkout do Asaas. O servidor
-  refaz preço, cupom e frete e só entrega o link se o total ainda for o que o cliente viu. O pedido só muda
+  cartão parcelado. O **Pix tem desconto automático (5% por padrão, editável em `/admin/pedidos`) sobre o
+  valor dos produtos**, depois do cupom e sem contar o frete; no cartão não há taxa extra, o cliente paga o
+  preço da vitrine, e o parcelado é sem juros. Por isso o custo do Asaas precisa estar no **preço dos
+  produtos**. O cliente informa os dados de entrega e é levado ao checkout do Asaas. O servidor refaz
+  preço, cupom, frete e desconto e só entrega o link se o total ainda for o que o cliente viu. O pedido só muda
   para "pago" pelo webhook do Asaas (`/api/webhooks/asaas`); a volta do checkout não prova pagamento.
   O dono acompanha e muda o andamento em `/admin/pedidos` (separação, envio com código de rastreio,
   entrega). O comprador acompanha em `/pedido/<id>?t=<chave>`. **Ligar**: ver
@@ -224,8 +227,8 @@ preenchidas com informação real antes de publicar.
 **Textos jurídicos**
 - `/politica-de-privacidade` e `/termos-de-uso` são modelos iniciais e
   precisam de revisão jurídica antes da publicação.
-- **Antes de cobrar pelo site:** parecer do contador sobre repassar a taxa do meio de pagamento ao
-  comprador, e a política de privacidade cobrindo os dados do pedido (nome, e-mail, telefone, endereço),
+- **Antes de cobrar pelo site:** conferir com o contador o desconto de 5% no Pix e o custo do Asaas embutido
+  no preço dos produtos, e a política de privacidade cobrindo os dados do pedido (nome, e-mail, telefone, endereço),
   gravados no banco do site e enviados ao Asaas e ao Melhor Envio.
 - **A política de privacidade ainda não cobre a loja**: com o pagamento pelo site, nome, e-mail,
   telefone e endereço de entrega (com CEP) do comprador são **gravados no banco do site** e só o

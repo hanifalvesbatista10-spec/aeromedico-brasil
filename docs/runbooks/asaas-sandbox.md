@@ -28,9 +28,10 @@ aos poucos.
 ## 1. Banco (uma vez)
 
 1. Aplicar, nesta ordem, no SQL Editor do Supabase do projeto (depois das migrations anteriores):
-   `supabase/migrations/20261022120000_store_orders.sql` e
+   `supabase/migrations/20261022120000_store_orders.sql`,
    `supabase/migrations/20261023120000_store_orders_hardening.sql` (coluna de ambiente do pedido,
-   pagamento que chega depois de cancelado vira "Pago: conferir estoque" e trava das variações).
+   pagamento que chega depois de cancelado vira "Pago: conferir estoque" e trava das variações) e
+   `supabase/migrations/20261024120000_store_pix_discount.sql` (desconto no Pix no lugar da taxa repassada).
 2. Gerar o segredo: um texto aleatório de **64 caracteres** (o site recusa menos de 32, porque ele é
    a única proteção do "marcar como pago"). Guardar em `ORDERS_RPC_SECRET` (`.env.local` e Vercel,
    **o mesmo valor** nos dois).
@@ -53,7 +54,8 @@ aos poucos.
 
    O banco guarda **um** segredo só. Se o valor da Vercel for diferente do gravado aqui, toda
    gravação de pedido é recusada ("não autorizado").
-4. Conferir (esperado: `taxas = 1`, `segredo = 1`, `funcoes = 5`, `ambiente = 1`):
+4. Conferir (esperado: `taxas = 1`, `segredo = 1`, `funcoes = 5`, `ambiente = 1`; depois da migration do Pix,
+   `select pix_discount_bp from public.store_payment_settings` devolve `500`):
 
    ```sql
    select
@@ -113,8 +115,8 @@ publicado com **peso e medidas**, e o site (ou túnel) acessível pelo Asaas.
 | # | Cenário | Como | Esperado |
 |---|---|---|---|
 | 1 | Frete | No carrinho, informar o CEP e escolher uma opção | Opções de Correios/Jadlog; frete e total no resumo |
-| 2 | Formas de pagamento | Com o frete escolhido, olhar "Forma de pagamento" | Pix, cartão à vista e cartão em até 6x, cada um com total e taxa |
-| 3 | Pix | Preencher entrega, escolher Pix, pagar; no painel do sandbox, **confirmar o Pix à mão** | Volta em `/pedido/<id>?t=...`; depois de confirmar, o status vira "Pagamento confirmado" |
+| 2 | Formas de pagamento | Com o frete escolhido, olhar "Forma de pagamento" | Pix com selo "5% OFF", cartão à vista e cartão parcelado sem juros, cada um com o total; o resumo mostra "Total no Pix" e "ou R$ X nas outras formas" |
+| 3 | Pix | Preencher entrega, escolher Pix, finalizar; no painel do sandbox, **confirmar o Pix à mão** | O valor cobrado no Asaas é o total do Pix (com os 5% sobre os produtos, sem mexer no frete); volta em `/pedido/<id>?t=...` com a linha "Desconto no Pix"; depois de confirmar, o status vira "Pagamento confirmado" |
 | 4 | Cartão | Pagar com `4444 4444 4444 4444`, qualquer validade futura, CVV `123` | Pagamento confirmado; estoque da variação baixou |
 | 5 | Cartão recusado | Usar um cartão de teste recusado da documentação do Asaas | O pedido segue "Aguardando pagamento"; nada baixa do estoque |
 | 6 | Cupom | Aplicar um cupom antes de pagar | Desconto no total; depois de pago, "Usos" do cupom sobe 1 |
@@ -148,10 +150,11 @@ Sem o cabeçalho (ou com token errado) a resposta é `401`. Repetir o mesmo `id`
 5. Cadastrar o webhook na conta **real**, com o token novo e os eventos de Checkout.
 6. Melhor Envio: token da conta real (só a permissão `shipping-calculate`), `MELHOR_ENVIO_ENV=production`,
    CEP de origem real e e-mail do cliente.
-7. Conferir as taxas em `/admin/pedidos` (seção "Taxas de pagamento") com o contrato real do Asaas.
+7. Conferir o desconto do Pix e o máximo de parcelas em `/admin/pedidos` (seção "Condições de pagamento"). Não há
+   taxa repassada ao comprador: o custo do Asaas (Pix, cartão e parcelamento) precisa estar no preço dos produtos.
 8. Antes de divulgar: política de privacidade
-   atualizada (CEP, dados de entrega, Asaas, Melhor Envio) e o parecer do contador sobre repassar a taxa ao
-   comprador.
+   atualizada (CEP, dados de entrega, Asaas, Melhor Envio) e a conferência com o contador do desconto de 5% no
+   Pix.
 9. **Troque o segredo dos pedidos**: gere um `ORDERS_RPC_SECRET` novo, coloque-o na Vercel (Production) e
    regrave o hash no banco (passo 3 de "Banco"), no mesmo momento. O valor do desenvolvimento não deve
    proteger a loja real.

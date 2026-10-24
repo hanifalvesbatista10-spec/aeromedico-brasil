@@ -46,3 +46,6 @@ next-env.d.ts
 
 # fotos originais dos produtos (as versoes para o site sobem pelo painel /admin/loja)
 /imagens de produtos/
+
+# Modelos e anotações do assistente (não vão para o Git)
+.superpowers/

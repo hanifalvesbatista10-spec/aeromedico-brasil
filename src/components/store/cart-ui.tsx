@@ -64,7 +64,7 @@ export function CartLayout({ left, summary }: { left: ReactNode; summary: ReactN
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
       <div className="grid min-w-0 gap-4">{left}</div>
-      <aside aria-label="Resumo do pedido" className="lg:sticky lg:top-24">
+      <aside id="resumo-do-pedido" aria-label="Resumo do pedido" className="scroll-mt-24 lg:sticky lg:top-24">
         {summary}
       </aside>
     </div>
