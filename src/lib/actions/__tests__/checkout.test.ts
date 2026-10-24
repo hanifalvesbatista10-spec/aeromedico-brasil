@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { DEFAULT_PAYMENT_FEES } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS } from "@/lib/payments/terms";
 import type { StoreProductDetail } from "@/lib/repositories/types";
 
 const listProductDetails = vi.fn();
@@ -8,7 +8,7 @@ const findActiveByCode = vi.fn();
 const create = vi.fn();
 const attachCheckout = vi.fn();
 const cancelPending = vi.fn();
-const getFees = vi.fn();
+const getTerms = vi.fn();
 const unstableRethrow = vi.fn();
 const quote = vi.fn();
 const getShippingProvider = vi.fn();
@@ -27,7 +27,7 @@ vi.mock("@/lib/repositories", () => ({
       attachCheckout: (...args: unknown[]) => attachCheckout(...args),
       cancelPending: (id: string) => cancelPending(id),
     },
-    paymentSettings: { get: () => getFees() },
+    paymentSettings: { get: () => getTerms() },
   }),
 }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: (e: unknown) => unstableRethrow(e) }));
@@ -85,7 +85,7 @@ function selection(over: Record<string, unknown> = {}) {
     couponCode: null,
     shipping: { optionId: "1", cep: "01018-020", expectedCents: 2345 },
     method: "pix",
-    expectedTotalCents: 6544,
+    expectedTotalCents: 6145,
     ...over,
   };
 }
@@ -98,7 +98,7 @@ beforeEach(() => {
   listProductDetails.mockResolvedValue([cap]);
   listCategories.mockResolvedValue([]);
   findActiveByCode.mockResolvedValue(null);
-  getFees.mockResolvedValue(DEFAULT_PAYMENT_FEES);
+  getTerms.mockResolvedValue(DEFAULT_PAYMENT_TERMS);
   quote.mockResolvedValue({ ok: true, options: [PAC] });
   getShippingProvider.mockReturnValue({ quote: (input: unknown) => quote(input) });
   getAsaasConfig.mockReturnValue(asaasConfig);
@@ -153,7 +153,7 @@ describe("placeOrderAction: checkout desligado ou entrada ruim", () => {
 
   it("total que o cliente viu diferente do calculado: nada é cobrado", async () => {
     const result = await placeOrderAction(selection({ expectedTotalCents: 6000 }), buyer);
-    expect(result).toMatchObject({ ok: false, code: "quote", quote: { code: "price-changed", newTotalCents: 6544 } });
+    expect(result).toMatchObject({ ok: false, code: "quote", quote: { code: "price-changed", newTotalCents: 6145 } });
     expect(create).not.toHaveBeenCalled();
   });
 });
@@ -161,7 +161,7 @@ describe("placeOrderAction: checkout desligado ou entrada ruim", () => {
 describe("placeOrderAction: caminho feliz", () => {
   it("grava o pedido com os valores do SERVIDOR, cria o checkout com o total com taxa e devolve o link", async () => {
     const result = await placeOrderAction(
-      selection({ totalCents: 1, feeCents: 0, subtotalCents: 1 }),
+      selection({ totalCents: 1, pixDiscountCents: 9999, subtotalCents: 1 }),
       buyer
     );
     expect(result).toEqual({ ok: true, checkoutUrl: "https://asaas.com/checkout/chk_1" });
@@ -193,8 +193,8 @@ describe("placeOrderAction: caminho feliz", () => {
       subtotalCents: 4000,
       discountCents: 0,
       couponCode: null,
-      feeCents: 199,
-      totalCents: 6544,
+      pixDiscountCents: 200,
+      totalCents: 6145,
       paymentMethod: "pix",
       environment: "sandbox",
     });
@@ -204,7 +204,7 @@ describe("placeOrderAction: caminho feliz", () => {
       expect.objectContaining({
         orderId: "ord-1",
         orderNumber: 123,
-        totalCents: 6544,
+        totalCents: 6145,
         method: "pix",
         maxInstallments: 6,
         siteUrl: "https://aeromedico.exemplo.com.br",

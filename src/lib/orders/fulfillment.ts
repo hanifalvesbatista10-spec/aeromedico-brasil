@@ -1,4 +1,4 @@
-import type { PaymentMethod } from "@/lib/payments/fees";
+import type { PaymentMethod } from "@/lib/payments/terms";
 import type { OrderStatus, StoreOrder } from "@/lib/types";
 
 /** O que as regras de andamento precisam saber do pedido. */

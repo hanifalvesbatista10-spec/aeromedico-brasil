@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   orderDraftToRpc,
   orderRowToDomain,
-  paymentFeesFromRow,
-  paymentFeesToRow,
+  paymentTermsFromRow,
+  paymentTermsToRow,
   publicOrderFromJson,
   readOrdersSecret,
 } from "../supabase/orders-mapping";
-import { DEFAULT_PAYMENT_FEES } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS } from "@/lib/payments/terms";
 import type { OrderDraft } from "@/lib/types";
 import type { StoreOrderItemRow, StoreOrderRow, StorePaymentSettingsRow } from "@/lib/supabase/types";
 
@@ -38,8 +38,8 @@ const draft: OrderDraft = {
   subtotalCents: 2000,
   discountCents: 0,
   couponCode: null,
-  feeCents: 199,
-  totalCents: 4544,
+  pixDiscountCents: 100,
+  totalCents: 4245,
   paymentMethod: "pix",
 };
 
@@ -72,8 +72,9 @@ describe("orderDraftToRpc", () => {
       subtotalCents: 2000,
       discountCents: 0,
       couponCode: null,
-      feeCents: 199,
-      totalCents: 4544,
+      pixDiscountCents: 100,
+      feeCents: 0,
+      totalCents: 4245,
       paymentMethod: "pix",
       environment: "production",
     });
@@ -93,8 +94,8 @@ describe("leituras", () => {
       subtotalCents: 2000,
       discountCents: 0,
       shippingCents: 2345,
-      feeCents: 199,
-      totalCents: 4544,
+      pixDiscountCents: 100,
+      totalCents: 4245,
       paymentMethod: "pix",
       trackingCode: null,
       items: [{ name: "Boné", size: null, colorName: null, quantity: 1, unitPriceCents: 2000 }],
@@ -130,8 +131,9 @@ describe("leituras", () => {
       discount_cents: 0,
       coupon_code: null,
       shipping_cents: 2345,
-      fee_cents: 199,
-      total_cents: 4544,
+      fee_cents: 0,
+      pix_discount_cents: 100,
+      total_cents: 4245,
       payment_method: "pix",
       asaas_checkout_id: "chk",
       asaas_checkout_url: "https://x",
@@ -166,45 +168,43 @@ describe("leituras", () => {
       paidAt: "2026-10-22T10:05:00Z",
       shipping: { optionId: "1", label: "Correios PAC", cents: 2345 },
       customer: { name: "Maria", email: "maria@exemplo.com", phone: "85999998888" },
+      pixDiscountCents: 100,
     });
     expect(order.items[0]).toMatchObject({ name: "Boné", unitPriceCents: 2000, quantity: 1 });
   });
 });
 
-describe("taxas", () => {
+describe("condições de pagamento", () => {
   const row: StorePaymentSettingsRow = {
     id: true,
-    pix_fixed_cents: 99,
+    pix_fixed_cents: 199,
     pix_percent_bp: 0,
     card_single_fixed_cents: 49,
-    card_single_percent_bp: 199,
+    card_single_percent_bp: 299,
     card_installments_fixed_cents: 49,
-    card_installments_percent_bp: 249,
+    card_installments_percent_bp: 349,
     max_installments: 4,
+    pix_discount_bp: 800,
     updated_at: "2026-10-22T10:00:00Z",
   };
 
   it("linha ↔ domínio", () => {
-    const fees = paymentFeesFromRow(row);
-    expect(fees).toEqual({
-      pix: { fixedCents: 99, percentBp: 0 },
-      cardSingle: { fixedCents: 49, percentBp: 199 },
-      cardInstallments: { fixedCents: 49, percentBp: 249 },
-      maxInstallments: 4,
-    });
-    expect(paymentFeesToRow(fees)).toEqual({
-      pix_fixed_cents: 99,
-      pix_percent_bp: 0,
-      card_single_fixed_cents: 49,
-      card_single_percent_bp: 199,
-      card_installments_fixed_cents: 49,
-      card_installments_percent_bp: 249,
-      max_installments: 4,
-    });
+    const terms = paymentTermsFromRow(row);
+    expect(terms).toEqual({ pixDiscountBp: 800, maxInstallments: 4 });
+    expect(paymentTermsToRow(terms)).toEqual({ pix_discount_bp: 800, max_installments: 4 });
   });
 
   it("sem linha (tabela ausente) cai nos valores padrão", () => {
-    expect(paymentFeesFromRow(null)).toEqual(DEFAULT_PAYMENT_FEES);
+    expect(paymentTermsFromRow(null)).toEqual(DEFAULT_PAYMENT_TERMS);
+  });
+
+  it("antes da migration do Pix a coluna não existe: vale o desconto padrão", () => {
+    const old = { ...row } as Partial<StorePaymentSettingsRow>;
+    delete old.pix_discount_bp;
+    expect(paymentTermsFromRow(old as StorePaymentSettingsRow)).toEqual({
+      pixDiscountBp: DEFAULT_PAYMENT_TERMS.pixDiscountBp,
+      maxInstallments: 4,
+    });
   });
 });
 

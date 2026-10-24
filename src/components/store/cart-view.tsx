@@ -3,12 +3,25 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
 import { CartCheckout } from "@/components/store/cart-checkout";
 import { CartShipping, type ShippingSelection } from "@/components/store/cart-shipping";
+import {
+  CartLayout,
+  CartSteps,
+  ContinueShopping,
+  SummaryPanel,
+  cardClass,
+  cardTitleClass,
+  fieldClass,
+  focusRing,
+  softButtonClass,
+  type SummaryLine,
+} from "@/components/store/cart-ui";
 import { useCart } from "@/hooks/use-cart";
 import { priceCartAction } from "@/lib/actions/cart";
 import { MAX_LINE_QUANTITY, lineKey, serializeCart } from "@/lib/cart/cart";
@@ -27,16 +40,14 @@ type LoadState =
     }
   | { status: "error"; message: string };
 
-const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-700";
-
+// Alvos de toque de 44 px; com mouse (`pointer-fine`) o controle encolhe para o desenho compacto.
 const stepper = cn(
-  "inline-flex size-11 items-center justify-center rounded-md border border-border text-lg transition-colors hover:bg-muted aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
+  "inline-flex size-11 items-center justify-center rounded-[9px] text-lg text-[#51607d] transition-colors hover:bg-white/70 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 pointer-fine:size-[30px]",
   focusRing
 );
 
 const textAction = cn(
-  "inline-flex min-h-11 items-center px-2 text-sm font-medium text-navy-700 underline underline-offset-2 hover:text-navy-950",
+  "inline-flex min-h-11 items-center px-1 text-[12.5px] font-medium text-[#6b7a96] underline underline-offset-[3px] hover:text-navy-950 pointer-fine:min-h-8",
   focusRing
 );
 
@@ -277,263 +288,268 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
     const couponMessage = evaluation && !evaluation.ok ? evaluation.message : null;
     const shipping =
       shippingChoice && shippingChoice.signature === cartSignature ? shippingChoice : null;
-    const totalCents = subtotalCents - discountCents + (shipping?.priceCents ?? 0);
-    // O pagamento só abre com frete escolhido e itens válidos; cupom só vai se ainda vale.
-    const payOnSite = checkoutEnabled && shipping !== null && lines.length > 0;
+    const productsCents = subtotalCents - discountCents;
+    const totalCents = productsCents + (shipping?.priceCents ?? 0);
+    const itemCount = lines.reduce((total, line) => total + line.quantity, 0);
     const checkoutCouponCode = coupon && evaluation?.ok ? coupon.code : null;
 
-    return (
-      <div className="grid gap-10 lg:grid-cols-[1fr_20rem]">
-        <div>
-          {lines.length > 0 && (
-            <ul
-              aria-label="Itens do carrinho"
-              className="divide-y divide-border border-y border-border"
-            >
-              {lines.map((line) => {
-                const label = describeLine(line);
-                const atMax =
-                  line.quantity >= MAX_LINE_QUANTITY ||
-                  (line.maxQuantity !== null && line.quantity >= line.maxQuantity);
-                const atMin = line.quantity <= 1;
-                return (
-                  <li key={line.key} className="flex gap-4 py-5">
-                    <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-gray-100">
-                      {line.imageUrl && (
-                        <Image
-                          src={line.imageUrl}
-                          alt=""
-                          fill
-                          sizes="80px"
-                          className="object-cover"
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/loja/${line.slug}`}
-                        className={cn(
-                          "break-words font-medium text-navy-950 hover:underline focus-visible:underline",
-                          focusRing
-                        )}
-                      >
-                        {line.name}
-                      </Link>
-                      {(line.size || line.colorName) && (
-                        <p className="mt-1 text-sm text-gray-600">
-                          {[line.size, line.colorName].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                      <p className="mt-1 text-sm text-gray-600">
-                        {formatBRL(line.unitPriceCents)} cada
-                      </p>
-                      {stockNotes[line.key] !== undefined && (
-                        <p className="mt-2 text-sm text-amber-800">
-                          Só temos {stockNotes[line.key]}{" "}
-                          {stockNotes[line.key] === 1
-                            ? "unidade disponível"
-                            : "unidades disponíveis"}
-                          . Ajustamos a quantidade.
-                        </p>
-                      )}
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <div role="group" aria-label="Quantidade" className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            className={stepper}
-                            aria-label={`Diminuir quantidade de ${label}`}
-                            aria-disabled={atMin}
-                            onClick={() => {
-                              if (!atMin) changeQuantity(line, line.quantity - 1);
-                            }}
-                          >
-                            −
-                          </button>
-                          <span className="min-w-8 text-center text-sm font-medium">
-                            {line.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            className={stepper}
-                            aria-label={`Aumentar quantidade de ${label}`}
-                            aria-disabled={atMax}
-                            onClick={() => {
-                              if (!atMax) changeQuantity(line, line.quantity + 1);
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeKey(line.key, label)}
-                          aria-label={`Remover ${label}`}
-                          className={textAction}
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    </div>
-                    <p className="shrink-0 text-sm font-semibold text-navy-950">
-                      <span className="sr-only">Total do item: </span>
-                      {formatBRL(line.lineTotalCents)}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+    // Linhas do resumo que não dependem da forma de pagamento.
+    const baseLines: SummaryLine[] = [
+      {
+        testId: "cart-subtotal",
+        label: `Subtotal (${itemCount} ${itemCount === 1 ? "item" : "itens"})`,
+        value: formatBRL(subtotalCents),
+      },
+    ];
+    if (coupon && discountCents > 0) {
+      baseLines.push({
+        testId: "cart-discount",
+        label: `Desconto (${coupon.code})`,
+        value: `-${formatBRL(discountCents)}`,
+        tone: "saving",
+      });
+    }
+    if (shipping) {
+      baseLines.push({
+        testId: "cart-shipping",
+        label: `Frete · ${shipping.label}`,
+        value: formatBRL(shipping.priceCents),
+      });
+    }
 
-          {unavailable.length > 0 && (
-            <section
-              aria-labelledby="indisponiveis"
-              className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5"
-            >
-              <h2 id="indisponiveis" className="text-sm font-semibold text-amber-950">
-                Estes itens não estão mais disponíveis
-              </h2>
-              <ul className="mt-3 space-y-1">
-                {unavailable.map((item) => (
-                  <li
-                    key={item.key}
-                    className="flex items-center justify-between gap-4 text-sm text-amber-950"
+    const plainNote =
+      lines.length === 0
+        ? "Nenhum item disponível para finalizar."
+        : !checkoutEnabled
+          ? "O pagamento pelo site ainda não está disponível. Volte em breve."
+          : "Calcule o frete para escolher a forma de pagamento e finalizar o pedido.";
+
+    const itemsCard = lines.length > 0 && (
+      <div className={cardClass}>
+        <ul aria-label="Itens do carrinho" className="divide-y divide-[#e9edf4]">
+          {lines.map((line) => {
+            const label = describeLine(line);
+            const atMax =
+              line.quantity >= MAX_LINE_QUANTITY ||
+              (line.maxQuantity !== null && line.quantity >= line.maxQuantity);
+            const atMin = line.quantity <= 1;
+            return (
+              <li key={line.key} className="flex gap-3.5 py-4 first:pt-0 last:pb-0 sm:gap-4">
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-[14px] bg-gradient-to-br from-navy-700 to-navy-950 shadow-[0_8px_18px_-8px_rgba(14,20,33,0.5)] sm:size-[88px]">
+                  {line.imageUrl ? (
+                    <Image src={line.imageUrl} alt="" fill sizes="88px" className="object-cover" />
+                  ) : (
+                    <Package aria-hidden="true" className="absolute inset-0 m-auto size-6 text-white/90 sm:size-8" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/loja/${line.slug}`}
+                    className={cn(
+                      "break-words font-heading text-[15px] font-bold tracking-tight text-navy-950 hover:underline focus-visible:underline sm:text-base",
+                      focusRing
+                    )}
                   >
-                    <span>
-                      {item.name
-                        ? `${item.name} (${item.reason === "sold-out" ? "esgotado" : "não está mais à venda"})`
-                        : "Item que saiu da loja"}
-                    </span>
+                    {line.name}
+                  </Link>
+                  {(line.size || line.colorName) && (
+                    <p className="mt-0.5 text-[12.5px] text-[#6b7a96]">
+                      {[line.size, line.colorName].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[12.5px] text-[#6b7a96]">{formatBRL(line.unitPriceCents)} cada</p>
+                  {stockNotes[line.key] !== undefined && (
+                    <p className="mt-2 text-sm text-amber-800">
+                      Só temos {stockNotes[line.key]}{" "}
+                      {stockNotes[line.key] === 1 ? "unidade disponível" : "unidades disponíveis"}. Ajustamos a
+                      quantidade.
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                    <div
+                      role="group"
+                      aria-label="Quantidade"
+                      className="inline-flex items-center rounded-[9px] border border-[#e1e6ef] bg-[#f6f8fb] shadow-[inset_0_1px_3px_rgba(14,20,33,0.14),0_8px_14px_-10px_rgba(14,20,33,0.3)]"
+                    >
+                      <button
+                        type="button"
+                        className={stepper}
+                        aria-label={`Diminuir quantidade de ${label}`}
+                        aria-disabled={atMin}
+                        onClick={() => {
+                          if (!atMin) changeQuantity(line, line.quantity - 1);
+                        }}
+                      >
+                        −
+                      </button>
+                      <span className="min-w-7 text-center text-sm font-semibold tabular-nums">{line.quantity}</span>
+                      <button
+                        type="button"
+                        className={stepper}
+                        aria-label={`Aumentar quantidade de ${label}`}
+                        aria-disabled={atMax}
+                        onClick={() => {
+                          if (!atMax) changeQuantity(line, line.quantity + 1);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => removeKey(item.key, item.name ?? "Item indisponível")}
-                      aria-label={`Remover ${item.name ?? "item indisponível"}`}
-                      className={cn(textAction, "text-amber-950 hover:text-amber-950")}
+                      onClick={() => removeKey(line.key, label)}
+                      aria-label={`Remover ${label}`}
+                      className={textAction}
                     >
                       Remover
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-
-        <aside className="h-fit rounded-lg border border-border p-5" aria-label="Resumo do pedido">
-          <div className="space-y-2">
-            <p className="flex items-baseline justify-between text-base">
-              <span className="font-medium text-navy-950">Subtotal</span>
-              <span data-testid="cart-subtotal" className="text-xl font-semibold text-navy-950">
-                {formatBRL(subtotalCents)}
-              </span>
-            </p>
-            {coupon && discountCents > 0 && (
-              <p className="flex items-baseline justify-between text-sm text-green-800">
-                <span>Desconto ({coupon.code})</span>
-                <span data-testid="cart-discount">-{formatBRL(discountCents)}</span>
-              </p>
-            )}
-            {shipping && (
-              <p className="flex items-baseline justify-between text-sm text-navy-950">
-                <span>Frete</span>
-                <span data-testid="cart-shipping">{formatBRL(shipping.priceCents)}</span>
-              </p>
-            )}
-            {(discountCents > 0 || shipping) && (
-              <p className="flex items-baseline justify-between border-t border-border pt-2 text-base">
-                <span className="font-medium text-navy-950">
-                  {payOnSite ? "Total sem a taxa do pagamento" : "Total"}
-                </span>
-                <span data-testid="cart-total" className="text-xl font-semibold text-navy-950">
-                  {formatBRL(totalCents)}
-                </span>
-              </p>
-            )}
-          </div>
-
-          {lines.length > 0 && (
-            <div
-              ref={couponBoxRef}
-              tabIndex={-1}
-              className="mt-4 border-t border-border pt-4 outline-none"
-            >
-              {coupon ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-navy-950">
-                    {couponMessage
-                      ? `Cupom ${coupon.code} não está valendo agora`
-                      : `Cupom ${coupon.code} aplicado`}
-                  </p>
-                  {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
-                  <button
-                    ref={removeCouponRef}
-                    type="button"
-                    onClick={removeCoupon}
-                    className={textAction}
-                  >
-                    Remover cupom
-                  </button>
-                </div>
-              ) : (
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    applyCoupon();
-                  }}
-                  className="space-y-2"
-                >
-                  <Label htmlFor="cart-coupon">Cupom de desconto</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="cart-coupon"
-                      value={couponInput}
-                      onChange={(e) => changeCouponInput(e.target.value)}
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      className={cn("h-11", focusRing)}
-                    />
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      aria-disabled={couponPending}
-                      className={cn("h-11 aria-disabled:opacity-60", focusRing)}
-                    >
-                      {couponPending ? "Aplicando…" : "Aplicar"}
-                    </Button>
                   </div>
-                  {(couponLocalError ?? state.couponError) && (
-                    <p role="alert" className="text-sm text-red-800">
-                      {couponLocalError ?? state.couponError}
-                    </p>
-                  )}
-                </form>
-              )}
-            </div>
-          )}
+                </div>
+                <p className="shrink-0 text-right font-heading text-[15px] font-bold tabular-nums text-navy-950 sm:text-[17px]">
+                  <span className="sr-only">Total do item: </span>
+                  {formatBRL(line.lineTotalCents)}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
 
-          {lines.length > 0 && (
-            <CartShipping
-              lines={cart.lines}
-              signature={cartSignature}
-              onSelect={setShippingChoice}
-              onAnnounce={setAnnouncement}
+    const unavailableCard = unavailable.length > 0 && (
+      <section
+        aria-labelledby="indisponiveis"
+        className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-[0_20px_40px_-26px_rgba(146,64,14,0.4)]"
+      >
+        <h2 id="indisponiveis" className="text-sm font-semibold text-amber-950">
+          Estes itens não estão mais disponíveis
+        </h2>
+        <ul className="mt-3 space-y-1">
+          {unavailable.map((item) => (
+            <li key={item.key} className="flex items-center justify-between gap-4 text-sm text-amber-950">
+              <span>
+                {item.name
+                  ? `${item.name} (${item.reason === "sold-out" ? "esgotado" : "não está mais à venda"})`
+                  : "Item que saiu da loja"}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeKey(item.key, item.name ?? "Item indisponível")}
+                aria-label={`Remover ${item.name ?? "item indisponível"}`}
+                className={cn(textAction, "text-amber-950 hover:text-amber-950")}
+              >
+                Remover
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+
+    const couponCard = lines.length > 0 && (
+      <div ref={couponBoxRef} tabIndex={-1} className={cn(cardClass, "outline-none")}>
+        <h2 className={cardTitleClass}>Cupom de desconto</h2>
+        {coupon ? (
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-navy-950">
+              {couponMessage ? `Cupom ${coupon.code} não está valendo agora` : `Cupom ${coupon.code} aplicado`}
+            </p>
+            {couponMessage && <p className="text-sm text-amber-800">{couponMessage}</p>}
+            <button ref={removeCouponRef} type="button" onClick={removeCoupon} className={textAction}>
+              Remover cupom
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyCoupon();
+            }}
+            className="space-y-2"
+          >
+            <Label htmlFor="cart-coupon" className="sr-only">
+              Cupom de desconto
+            </Label>
+            <div className="flex gap-2.5">
+              <Input
+                id="cart-coupon"
+                value={couponInput}
+                onChange={(e) => changeCouponInput(e.target.value)}
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="Digite o código"
+                className={fieldClass}
+              />
+              <button
+                type="submit"
+                aria-disabled={couponPending}
+                className={cn(softButtonClass, "inline-flex items-center")}
+              >
+                {couponPending ? "Aplicando…" : "Aplicar"}
+              </button>
+            </div>
+            {(couponLocalError ?? state.couponError) && (
+              <p role="alert" className="text-sm text-red-800">
+                {couponLocalError ?? state.couponError}
+              </p>
+            )}
+          </form>
+        )}
+      </div>
+    );
+
+    const shippingCard = lines.length > 0 && (
+      <CartShipping
+        lines={cart.lines}
+        signature={cartSignature}
+        onSelect={setShippingChoice}
+        onAnnounce={setAnnouncement}
+      />
+    );
+
+    return (
+      <>
+        {lines.length > 0 && <CartSteps current={shipping ? 2 : 1} />}
+        <CartCheckout
+          enabled={checkoutEnabled && lines.length > 0}
+          lines={cart.lines}
+          couponCode={checkoutCouponCode}
+          shipping={shipping}
+          productsCents={productsCents}
+          baseLines={baseLines}
+          // O servidor informou outro preço para o frete escolhido: o resumo passa a usá-lo.
+          onShippingChange={(priceCents) =>
+            setShippingChoice((current) => (current ? { ...current, priceCents } : current))
+          }
+          // O servidor discorda dos valores do carrinho (preço ou cupom): reprecifica.
+          onStale={() => setAttempt((n) => n + 1)}
+        >
+          {({ payment, contact, summary }) => (
+            <CartLayout
+              left={
+                <>
+                  {itemsCard}
+                  {unavailableCard}
+                  {shippingCard}
+                  {couponCard}
+                  {payment}
+                  {contact}
+                </>
+              }
+              summary={
+                summary ?? (
+                  <SummaryPanel lines={baseLines} totalLabel="Total" totalValue={formatBRL(totalCents)}>
+                    <p className="mt-[18px] text-sm text-[#9fb0d0]">{plainNote}</p>
+                    <ContinueShopping />
+                  </SummaryPanel>
+                )
+              }
             />
           )}
-
-          {payOnSite && shipping ? (
-            <CartCheckout lines={cart.lines} couponCode={checkoutCouponCode} shipping={shipping} />
-          ) : (
-            <p className="mt-4 text-sm text-gray-600">
-              {lines.length === 0
-                ? "Nenhum item disponível para finalizar."
-                : !checkoutEnabled
-                  ? "O pagamento pelo site ainda não está disponível. Volte em breve."
-                  : "Calcule o frete para escolher a forma de pagamento e finalizar o pedido."}
-            </p>
-          )}
-        </aside>
-      </div>
+        </CartCheckout>
+      </>
     );
   }
 

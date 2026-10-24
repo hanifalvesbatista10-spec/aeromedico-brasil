@@ -240,8 +240,10 @@ export function OrderDialog({
                 value={`-${formatBRL(order.discountCents)}`}
               />
             )}
+            {order.pixDiscountCents > 0 && (
+              <Row label="Desconto no Pix" value={`-${formatBRL(order.pixDiscountCents)}`} />
+            )}
             <Row label={`Frete (${order.shipping.label})`} value={formatBRL(order.shipping.cents)} />
-            {order.feeCents > 0 && <Row label="Taxa de pagamento" value={formatBRL(order.feeCents)} />}
             <Row label="Total" value={formatBRL(order.totalCents)} strong />
           </dl>
           <p className="text-sm text-gray-700">{`Forma de pagamento: ${PAYMENT_METHOD_LABELS[order.paymentMethod]}`}</p>

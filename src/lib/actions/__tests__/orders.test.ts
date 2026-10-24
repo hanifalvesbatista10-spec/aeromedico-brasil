@@ -18,7 +18,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePath(...args),
 }));
 
-import { savePaymentFees, updateOrderFulfillment } from "../orders";
+import { savePaymentTerms, updateOrderFulfillment } from "../orders";
 
 function order(over: Partial<StoreOrder> = {}): StoreOrder {
   return {
@@ -46,8 +46,8 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
     subtotalCents: 4000,
     discountCents: 0,
     couponCode: null,
-    feeCents: 199,
-    totalCents: 6544,
+    pixDiscountCents: 200,
+    totalCents: 6145,
     paymentMethod: "pix",
     ...over,
   };
@@ -120,35 +120,26 @@ describe("updateOrderFulfillment", () => {
   });
 });
 
-describe("savePaymentFees", () => {
-  const input = {
-    pix: { percent: "0", fixed: "1,99" },
-    cardSingle: { percent: "2,99", fixed: "0,49" },
-    cardInstallments: { percent: "3,49", fixed: "0,49" },
-    maxInstallments: "6",
-  };
+describe("savePaymentTerms", () => {
+  const input = { pixDiscount: "5", maxInstallments: "6" };
 
   it("sem administrador: rejeita e não toca no repositório", async () => {
     requireAdmin.mockRejectedValue(new Error("Sessão administrativa não encontrada."));
-    await expect(savePaymentFees(input)).rejects.toThrow("Sessão administrativa");
+    await expect(savePaymentTerms(input)).rejects.toThrow("Sessão administrativa");
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("converte e grava pontos-base e centavos", async () => {
-    const result = await savePaymentFees(input);
-    expect(update).toHaveBeenCalledWith({
-      pix: { percentBp: 0, fixedCents: 199 },
-      cardSingle: { percentBp: 299, fixedCents: 49 },
-      cardInstallments: { percentBp: 349, fixedCents: 49 },
-      maxInstallments: 6,
-    });
+  it("converte o percentual em pontos-base e grava", async () => {
+    const result = await savePaymentTerms({ pixDiscount: "5,5", maxInstallments: "10" });
+    expect(update).toHaveBeenCalledWith({ pixDiscountBp: 550, maxInstallments: 10 });
     expect(result.ok).toBe(true);
     expect(revalidatePath).toHaveBeenCalledWith("/admin/pedidos");
   });
 
   it("entrada inválida volta como valor e nada é gravado", async () => {
-    const result = await savePaymentFees({ ...input, maxInstallments: "22" });
-    expect(result.ok).toBe(false);
+    expect((await savePaymentTerms({ ...input, maxInstallments: "22" })).ok).toBe(false);
+    expect((await savePaymentTerms({ ...input, pixDiscount: "60" })).ok).toBe(false);
+    expect((await savePaymentTerms({ ...input, pixDiscount: "" })).ok).toBe(false);
     expect(update).not.toHaveBeenCalled();
   });
 });

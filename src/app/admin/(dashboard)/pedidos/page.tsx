@@ -2,17 +2,17 @@ import { unstable_rethrow } from "next/navigation";
 import { getRepositories } from "@/lib/repositories";
 import { ADMIN_ORDERS_LIMIT } from "@/lib/repositories/types";
 import { OrdersManager } from "@/components/admin/orders-manager";
-import { PaymentFeesPanel } from "@/components/admin/payment-fees-panel";
+import { PaymentTermsPanel } from "@/components/admin/payment-terms-panel";
 import { EmptyState } from "@/components/empty-state";
-import type { PaymentFees } from "@/lib/payments/fees";
+import type { PaymentTerms } from "@/lib/payments/terms";
 import type { StoreOrder } from "@/lib/types";
 
 export default async function AdminPedidosPage() {
   let orders: StoreOrder[];
-  let fees: PaymentFees;
+  let terms: PaymentTerms;
   try {
     const repositories = getRepositories();
-    [orders, fees] = await Promise.all([repositories.orders.list(), repositories.paymentSettings.get()]);
+    [orders, terms] = await Promise.all([repositories.orders.list(), repositories.paymentSettings.get()]);
   } catch (error) {
     unstable_rethrow(error);
     console.error("[admin/pedidos] tabelas indisponíveis", error instanceof Error ? error.name : "erro");
@@ -30,7 +30,7 @@ export default async function AdminPedidosPage() {
         initialOrders={orders}
         showingLatest={orders.length >= ADMIN_ORDERS_LIMIT ? ADMIN_ORDERS_LIMIT : undefined}
       />
-      <PaymentFeesPanel initialFees={fees} />
+      <PaymentTermsPanel initialTerms={terms} />
     </div>
   );
 }

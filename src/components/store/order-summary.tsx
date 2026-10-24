@@ -106,10 +106,10 @@ export function OrderSummary({
         {order.discountCents > 0 && (
           <Row label="Desconto" value={`-${formatBRL(order.discountCents)}`} />
         )}
-        <Row label="Frete" value={formatBRL(order.shippingCents)} />
-        {order.feeCents > 0 && (
-          <Row label="Taxa de pagamento" value={formatBRL(order.feeCents)} />
+        {order.pixDiscountCents > 0 && (
+          <Row label="Desconto no Pix" value={`-${formatBRL(order.pixDiscountCents)}`} />
         )}
+        <Row label="Frete" value={formatBRL(order.shippingCents)} />
         <Row label="Total" value={formatBRL(order.totalCents)} strong />
       </dl>
 

@@ -30,8 +30,8 @@ function draft(over: Partial<OrderDraft> = {}): OrderDraft {
     subtotalCents: 9980,
     discountCents: 998,
     couponCode: "VERAO10",
-    feeCents: 359,
-    totalCents: 9980 - 998 + 2345 + 359,
+    pixDiscountCents: 0,
+    totalCents: 9980 - 998 + 2345,
     paymentMethod: "card_single",
     ...over,
   };
@@ -172,9 +172,9 @@ describe("mock order repository: leitura pública e andamento", () => {
       id: order.id,
       number: order.number,
       status: "awaiting_payment",
-      totalCents: 9980 - 998 + 2345 + 359,
+      totalCents: 9980 - 998 + 2345,
       shippingCents: 2345,
-      feeCents: 359,
+      pixDiscountCents: 0,
       paymentMethod: "card_single",
     });
     expect(found?.items).toEqual([
@@ -237,7 +237,7 @@ describe("mock order repository: ajustes da revisão", () => {
 
   it("list devolve só os 200 mais recentes", async () => {
     const repo = setup();
-    for (let i = 0; i < 205; i += 1) await repo.create(draft({ items: [], subtotalCents: 0, discountCents: 0, totalCents: 2345 + 359 }));
+    for (let i = 0; i < 205; i += 1) await repo.create(draft({ items: [], subtotalCents: 0, discountCents: 0, totalCents: 2345 }));
     expect(await repo.list()).toHaveLength(200);
   });
 

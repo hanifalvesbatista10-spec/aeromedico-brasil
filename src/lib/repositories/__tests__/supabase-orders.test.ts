@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { DEFAULT_PAYMENT_FEES } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS } from "@/lib/payments/terms";
 
 // Repositórios do Supabase contra um cliente de mentira: o que importa aqui é o
 // que acontece quando o BANCO FALHA (nunca virar "pedido não existe" nem "taxas
@@ -134,7 +134,7 @@ describe("repositório Supabase das taxas", () => {
   it("tabela que ainda não existe (migration não aplicada): valores padrão", async () => {
     for (const code of ["42P01", "PGRST205"]) {
       maybeSingle.mockResolvedValue({ data: null, error: { code, message: "tabela não existe" } });
-      expect(await createSupabasePaymentSettingsRepository().get()).toEqual(DEFAULT_PAYMENT_FEES);
+      expect(await createSupabasePaymentSettingsRepository().get()).toEqual(DEFAULT_PAYMENT_TERMS);
     }
   });
 
@@ -143,22 +143,17 @@ describe("repositório Supabase das taxas", () => {
     await expect(createSupabasePaymentSettingsRepository().get()).rejects.toThrow();
   });
 
-  it("lê a linha gravada", async () => {
+  it("lê a linha gravada (desconto do Pix e parcelas)", async () => {
     maybeSingle.mockResolvedValue({
       data: {
         id: true,
-        pix_fixed_cents: 299,
-        pix_percent_bp: 0,
-        card_single_fixed_cents: 49,
-        card_single_percent_bp: 299,
-        card_installments_fixed_cents: 49,
-        card_installments_percent_bp: 349,
-        max_installments: 6,
+        pix_discount_bp: 800,
+        max_installments: 4,
         updated_at: "2026-10-22T10:00:00Z",
       },
       error: null,
     });
-    const fees = await createSupabasePaymentSettingsRepository().get();
-    expect(fees.pix).toEqual({ fixedCents: 299, percentBp: 0 });
+    const terms = await createSupabasePaymentSettingsRepository().get();
+    expect(terms).toEqual({ pixDiscountBp: 800, maxInstallments: 4 });
   });
 });

@@ -1,4 +1,4 @@
-import type { PaymentMethod } from "./fees";
+import type { PaymentMethod } from "./terms";
 import { CHECKOUT_ITEM_IMAGE_BASE64 } from "./checkout-image";
 
 // Cliente do Asaas Checkout (docs.asaas.com: "Asaas Checkout", POST /v3/checkouts).

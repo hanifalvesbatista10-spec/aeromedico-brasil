@@ -104,7 +104,7 @@ describe("CartView", () => {
     render(<CartView />);
 
     expect(await screen.findByText("Camiseta Aeromédico")).toBeTruthy();
-    expect(screen.getByText("M, Preta")).toBeTruthy();
+    expect(screen.getByText("M · Preta")).toBeTruthy();
     expect(money(document.body.textContent)).toContain("R$ 99,80");
     expect(money(screen.getByTestId("cart-subtotal").textContent)).toContain("R$ 119,80");
     expect(screen.getByRole("link", { name: "Camiseta Aeromédico" }).getAttribute("href")).toBe(
@@ -430,12 +430,14 @@ describe("CartView com cupom", () => {
 
 });
 
+// O carrinho calcula os totais com as condições que o servidor informa (Pix 5%, até 6x).
 const checkoutQuote = {
   ok: true,
-  options: [
-    { method: "pix", label: "Pix", feeCents: 199, totalCents: 12000, installments: null, installmentCents: null },
-    { method: "card_single", label: "Cartão à vista", feeCents: 247, totalCents: 12048, installments: null, installmentCents: null },
-  ],
+  terms: { pixDiscountBp: 500, maxInstallments: 6 },
+  options: [],
+  chosen: {},
+  items: [],
+  orderCents: 12000,
 };
 
 const PAC = { id: "1", name: "PAC", company: "Correios", priceCents: 2345, deliveryDays: 6 };
@@ -585,7 +587,9 @@ describe("CartView com frete", () => {
     const radios = within(group).getAllByRole("radio") as HTMLInputElement[];
     expect(radios).toHaveLength(2);
     expect(radios[0].checked).toBe(true);
-    expect(money(group.textContent)).toContain("Correios PAC · R$ 23,45 · até 6 dias úteis");
+    expect(money(group.textContent)).toContain("Correios PAC");
+    expect(money(group.textContent)).toContain("até 6 dias úteis");
+    expect(money(group.textContent)).toContain("R$ 23,45");
     expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 23,45");
     expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 123,25");
   });
@@ -623,7 +627,8 @@ describe("CartView com frete", () => {
 
     expect(screen.queryByRole("group", { name: "Opções de entrega" })).toBeNull();
     expect(screen.queryByTestId("cart-shipping")).toBeNull();
-    expect(screen.queryByTestId("cart-total")).toBeNull();
+    // Sem frete, o total do resumo volta a ser só os produtos (3 camisas).
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 149,70");
     expect(screen.getAllByText("O carrinho mudou. Calcule o frete de novo.").length).toBeGreaterThan(0);
   });
 
@@ -781,7 +786,7 @@ describe("CartView: pagamento pelo site", () => {
     calculate();
 
     await screen.findByRole("group", { name: "Forma de pagamento" });
-    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalizar pedido/ })).toBeTruthy();
     expect(quoteCheckoutAction).toHaveBeenCalledWith({
       lines: [shirt(2)],
       couponCode: null,
@@ -856,7 +861,7 @@ describe("CartView: pagamento pelo site, ajustes da revisão", () => {
     quoteShippingAction.mockResolvedValue(quoteOk());
   });
 
-  it("o total do resumo avisa que ainda não inclui a taxa do pagamento", async () => {
+  it("com o pagamento ligado, o resumo mostra o Pix com 5% de desconto sobre os produtos (sem o frete)", async () => {
     seed([shirt(2)]);
     fakeServer();
     render(<CartView checkoutEnabled />);
@@ -864,7 +869,9 @@ describe("CartView: pagamento pelo site, ajustes da revisão", () => {
     calculate();
     await screen.findByRole("group", { name: "Forma de pagamento" });
 
-    expect(screen.getByText("Total sem a taxa do pagamento")).toBeTruthy();
+    // Produtos R$ 99,80 + frete R$ 23,45 = R$ 123,25; o Pix tira 5% de R$ 99,80 (R$ 4,99).
+    expect(money(screen.getByTestId("cart-pix-discount").textContent)).toContain("R$ 4,99");
+    expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 118,26");
   });
 });
 
@@ -895,7 +902,7 @@ describe("CartView: só pedido, sem WhatsApp", () => {
     await screen.findByText("Camiseta Aeromédico");
     calculate();
     await screen.findByRole("group", { name: "Forma de pagamento" });
-    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalizar pedido/ })).toBeTruthy();
     noWhatsapp();
   });
 

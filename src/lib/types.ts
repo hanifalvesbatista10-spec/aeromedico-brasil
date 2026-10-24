@@ -275,10 +275,10 @@ export interface OrderDraft {
   subtotalCents: number;
   discountCents: number;
   couponCode: string | null;
-  /** Taxa do meio de pagamento repassada ao cliente. */
-  feeCents: number;
+  /** Desconto do Pix (só em pedido pago com Pix; o `discountCents` acima é do cupom). */
+  pixDiscountCents: number;
   totalCents: number;
-  paymentMethod: import("@/lib/payments/fees").PaymentMethod;
+  paymentMethod: import("@/lib/payments/terms").PaymentMethod;
   /** Sem informar, vale `production`. */
   environment?: OrderEnvironment;
 }
@@ -310,8 +310,8 @@ export interface PublicOrder {
   subtotalCents: number;
   discountCents: number;
   shippingCents: number;
-  feeCents: number;
+  pixDiscountCents: number;
   totalCents: number;
-  paymentMethod: import("@/lib/payments/fees").PaymentMethod;
+  paymentMethod: import("@/lib/payments/terms").PaymentMethod;
   trackingCode: string | null;
 }

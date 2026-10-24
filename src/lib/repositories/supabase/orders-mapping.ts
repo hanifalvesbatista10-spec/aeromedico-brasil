@@ -1,5 +1,5 @@
 import { MIN_ORDERS_SECRET_LENGTH, usableOrdersSecret } from "@/lib/orders/secret";
-import { DEFAULT_PAYMENT_FEES, type PaymentFees } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS, type PaymentTerms } from "@/lib/payments/terms";
 import type {
   StoreOrderItemRow,
   StoreOrderRow,
@@ -31,7 +31,9 @@ export function orderDraftToRpc(draft: OrderDraft) {
     subtotalCents: draft.subtotalCents,
     discountCents: draft.discountCents,
     couponCode: draft.couponCode,
-    feeCents: draft.feeCents,
+    pixDiscountCents: draft.pixDiscountCents,
+    // Não há taxa repassada ao comprador; a função SQL ainda lê a chave.
+    feeCents: 0,
     totalCents: draft.totalCents,
     paymentMethod: draft.paymentMethod,
     environment: draft.environment ?? "production",
@@ -68,7 +70,7 @@ export function orderRowToDomain(row: StoreOrderRow, items: StoreOrderItemRow[])
     subtotalCents: row.subtotal_cents,
     discountCents: row.discount_cents,
     couponCode: row.coupon_code,
-    feeCents: row.fee_cents,
+    pixDiscountCents: row.pix_discount_cents ?? 0,
     totalCents: row.total_cents,
     paymentMethod: row.payment_method,
     checkoutId: row.asaas_checkout_id,
@@ -111,7 +113,7 @@ export function publicOrderFromJson(json: unknown): PublicOrder | null {
     subtotalCents: Number(o.subtotalCents),
     discountCents: Number(o.discountCents),
     shippingCents: Number(o.shippingCents),
-    feeCents: Number(o.feeCents),
+    pixDiscountCents: Number(o.pixDiscountCents ?? 0),
     totalCents: Number(o.totalCents),
     paymentMethod: o.paymentMethod as PublicOrder["paymentMethod"],
     trackingCode: typeof o.trackingCode === "string" ? o.trackingCode : null,
@@ -130,27 +132,18 @@ export function orderFulfillmentPatchToRow(patch: {
   return row;
 }
 
-export function paymentFeesFromRow(row: StorePaymentSettingsRow | null): PaymentFees {
-  if (!row) return structuredClone(DEFAULT_PAYMENT_FEES);
+export function paymentTermsFromRow(row: StorePaymentSettingsRow | null): PaymentTerms {
+  if (!row) return structuredClone(DEFAULT_PAYMENT_TERMS);
   return {
-    pix: { fixedCents: row.pix_fixed_cents, percentBp: row.pix_percent_bp },
-    cardSingle: { fixedCents: row.card_single_fixed_cents, percentBp: row.card_single_percent_bp },
-    cardInstallments: {
-      fixedCents: row.card_installments_fixed_cents,
-      percentBp: row.card_installments_percent_bp,
-    },
+    // Antes da migration do desconto no Pix a coluna não existe: vale o padrão.
+    pixDiscountBp: row.pix_discount_bp ?? DEFAULT_PAYMENT_TERMS.pixDiscountBp,
     maxInstallments: row.max_installments,
   };
 }
 
-export function paymentFeesToRow(fees: PaymentFees) {
+export function paymentTermsToRow(terms: PaymentTerms) {
   return {
-    pix_fixed_cents: fees.pix.fixedCents,
-    pix_percent_bp: fees.pix.percentBp,
-    card_single_fixed_cents: fees.cardSingle.fixedCents,
-    card_single_percent_bp: fees.cardSingle.percentBp,
-    card_installments_fixed_cents: fees.cardInstallments.fixedCents,
-    card_installments_percent_bp: fees.cardInstallments.percentBp,
-    max_installments: fees.maxInstallments,
+    pix_discount_bp: terms.pixDiscountBp,
+    max_installments: terms.maxInstallments,
   };
 }

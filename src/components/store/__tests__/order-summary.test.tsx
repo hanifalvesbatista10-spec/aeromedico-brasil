@@ -17,7 +17,7 @@ function order(over: Partial<PublicOrder> = {}): PublicOrder {
     subtotalCents: 11980,
     discountCents: 0,
     shippingCents: 2345,
-    feeCents: 0,
+    pixDiscountCents: 0,
     totalCents: 14325,
     paymentMethod: "pix",
     trackingCode: null,
@@ -53,16 +53,18 @@ describe("OrderSummary", () => {
     expect(screen.getByTestId("order-status").textContent).toBe(label);
   });
 
-  it("Desconto e Taxa só aparecem quando maiores que zero", () => {
+  it("Desconto (cupom) e Desconto no Pix só aparecem quando maiores que zero", () => {
     const { rerender } = render(<OrderSummary order={order()} />);
     expect(text()).not.toContain("Desconto");
-    expect(text()).not.toContain("Taxa de pagamento");
 
-    rerender(<OrderSummary order={order({ discountCents: 998, feeCents: 359, totalCents: 14325 - 998 + 359 })} />);
+    rerender(<OrderSummary order={order({ discountCents: 998, totalCents: 14325 - 998 })} />);
     expect(text()).toContain("Desconto");
     expect(text()).toContain("-R$ 9,98");
-    expect(text()).toContain("Taxa de pagamento");
-    expect(text()).toContain("R$ 3,59");
+    expect(text()).not.toContain("Desconto no Pix");
+
+    rerender(<OrderSummary order={order({ pixDiscountCents: 600, totalCents: 14325 - 600 })} />);
+    expect(text()).toContain("Desconto no Pix");
+    expect(text()).toContain("-R$ 6,00");
   });
 
   it("rastreio só aparece quando existe", () => {

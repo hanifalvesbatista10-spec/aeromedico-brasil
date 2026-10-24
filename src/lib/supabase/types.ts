@@ -273,6 +273,8 @@ export interface StoreOrderRow {
   coupon_code: string | null;
   shipping_cents: number;
   fee_cents: number;
+  /** Desconto do Pix; `fee_cents` é legado e fica sempre em zero. */
+  pix_discount_cents: number;
   total_cents: number;
   payment_method: "pix" | "card_single" | "card_installments";
   asaas_checkout_id: string | null;
@@ -306,5 +308,6 @@ export interface StorePaymentSettingsRow {
   card_installments_fixed_cents: number;
   card_installments_percent_bp: number;
   max_installments: number;
+  pix_discount_bp: number;
   updated_at: string;
 }

@@ -17,7 +17,7 @@ import type {
   StoreVariant,
   Testimonial,
 } from "@/lib/types";
-import type { PaymentFees } from "@/lib/payments/fees";
+import type { PaymentTerms } from "@/lib/payments/terms";
 
 export interface ProgramsRepository {
   list(): Promise<Program[]>;
@@ -171,6 +171,6 @@ export interface OrderRepository {
 
 export interface PaymentSettingsRepository {
   /** Cai nos valores padrão se a tabela ainda não existir. */
-  get(): Promise<PaymentFees>;
-  update(fees: PaymentFees): Promise<PaymentFees>;
+  get(): Promise<PaymentTerms>;
+  update(terms: PaymentTerms): Promise<PaymentTerms>;
 }

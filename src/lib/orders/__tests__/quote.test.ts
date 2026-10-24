@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeCheckoutQuote, type CheckoutDeps } from "../quote";
-import { DEFAULT_PAYMENT_FEES, paymentOptions } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS, paymentOptions } from "@/lib/payments/terms";
 import type { StoreProductDetail } from "@/lib/repositories/types";
 import type { StoreCoupon, StoreProduct, StoreVariant } from "@/lib/types";
 
@@ -102,7 +102,7 @@ beforeEach(() => {
     },
     coupons: { findActiveByCode },
     shippingProvider: { quote },
-    fees: DEFAULT_PAYMENT_FEES,
+    terms: DEFAULT_PAYMENT_TERMS,
     now: NOW,
   } as unknown as CheckoutDeps;
 });
@@ -128,9 +128,13 @@ describe("computeCheckoutQuote: caminho feliz", () => {
     expect(result.couponCode).toBeNull();
     expect(result.shipping).toEqual({ optionId: "1", label: "Correios PAC", cents: 2345, cep: "01018020" });
     expect(result.orderCents).toBe(6345);
-    expect(result.options).toEqual(paymentOptions(6345, DEFAULT_PAYMENT_FEES));
+    expect(result.options).toEqual(
+      paymentOptions({ productsCents: 4000, shippingCents: 2345 }, DEFAULT_PAYMENT_TERMS)
+    );
     expect(result.chosen.method).toBe("pix");
-    expect(result.chosen.totalCents).toBe(6544);
+    // Pix: 5% de R$ 40,00 = R$ 2,00 de desconto; o frete fica de fora.
+    expect(result.chosen.discountCents).toBe(200);
+    expect(result.chosen.totalCents).toBe(6145);
   });
 
   it("devolve os itens do pedido com preço e peso vindos do catálogo", async () => {
@@ -169,7 +173,7 @@ describe("computeCheckoutQuote: caminho feliz", () => {
 describe("computeCheckoutQuote: nada que vem do navegador vale", () => {
   it("campos extras e totais enviados pelo navegador são ignorados", async () => {
     const result = await computeCheckoutQuote(
-      selection({ totalCents: 1, feeCents: 0, subtotalCents: 1, unitPriceCents: 1 }),
+      selection({ totalCents: 1, pixDiscountCents: 9999, subtotalCents: 1, unitPriceCents: 1 }),
       deps
     );
     expect(result.ok && result.orderCents).toBe(6345);
@@ -265,20 +269,20 @@ describe("computeCheckoutQuote: cupom", () => {
 describe("computeCheckoutQuote: total que o cliente viu", () => {
   it("total esperado diferente do calculado: price-changed com o total novo", async () => {
     const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6000 }), deps);
-    expect(result).toMatchObject({ ok: false, code: "price-changed", newTotalCents: 6544 });
+    expect(result).toMatchObject({ ok: false, code: "price-changed", newTotalCents: 6145 });
     expect(!result.ok && result.error.replace(/ /g, " ")).toBe(
-      "O total do pedido mudou para R$ 65,44. Se estiver de acordo, clique em Pagar de novo."
+      "O total do pedido mudou para R$ 61,45. Se estiver de acordo, clique em Pagar de novo."
     );
   });
 
   it("total esperado igual ao calculado passa", async () => {
-    const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6544 }), deps);
+    const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6145 }), deps);
     expect(result.ok).toBe(true);
   });
 
   it("cupom que sumiu entre a cotação e o pedido muda o total e é avisado", async () => {
-    // O cliente viu o total COM o desconto (5945 + taxa do Pix = 6144).
-    const result = await computeCheckoutQuote(selection({ expectedTotalCents: 6144 }), deps);
+    // O cliente viu o total COM o cupom: produtos 3600 + frete 2345 − Pix 180 = 5765.
+    const result = await computeCheckoutQuote(selection({ expectedTotalCents: 5765 }), deps);
     expect(result).toMatchObject({ ok: false, code: "price-changed" });
   });
 });
@@ -287,7 +291,7 @@ describe("computeCheckoutQuote: forma de pagamento que não é oferecida", () =>
   it("cartão parcelado com máximo de 1 parcela: entrada inválida, sem lançar erro", async () => {
     const result = await computeCheckoutQuote(selection({ method: "card_installments" }), {
       ...deps,
-      fees: { ...DEFAULT_PAYMENT_FEES, maxInstallments: 1 },
+      terms: { ...DEFAULT_PAYMENT_TERMS, maxInstallments: 1 },
     });
     expect(result).toMatchObject({ ok: false, code: "invalid-input" });
   });

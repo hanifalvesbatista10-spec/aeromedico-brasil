@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { quoteShippingAction } from "@/lib/actions/shipping";
@@ -10,6 +9,15 @@ import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { formatCep, normalizeCep } from "@/lib/shipping/cep";
 import type { ShippingOption } from "@/lib/shipping/types";
+import {
+  cardClass,
+  cardNoteClass,
+  cardTitleClass,
+  darkButtonClass,
+  fieldClass,
+  optionClass,
+  radioClass,
+} from "./cart-ui";
 
 /** Opção de entrega escolhida, válida só para o carrinho (`signature`) que a originou. */
 export interface ShippingSelection {
@@ -30,9 +38,6 @@ interface Quote {
 }
 
 type Notice = { kind: "alert" | "status"; text: string };
-
-const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-700";
 
 function maskCep(input: string): string {
   const digits = input.replace(/\D/g, "").slice(0, 8);
@@ -167,16 +172,23 @@ export function CartShipping({
   }
 
   return (
-    <div className="mt-4 border-t border-border pt-4">
+    <section aria-labelledby="cart-shipping-title" className={cardClass}>
+      <h2 id="cart-shipping-title" className={cardTitleClass}>
+        Entrega
+        <span className={cardNoteClass}>Cálculo pelo Melhor Envio</span>
+      </h2>
+
       <form
         onSubmit={(event) => {
           event.preventDefault();
           void handleQuote();
         }}
-        className="space-y-2"
+        className="space-y-1.5"
       >
-        <Label htmlFor="cart-cep">CEP de entrega</Label>
-        <div className="flex gap-2">
+        <Label htmlFor="cart-cep" className="sr-only">
+          CEP de entrega
+        </Label>
+        <div className="flex gap-2.5">
           <Input
             id="cart-cep"
             value={cep}
@@ -184,55 +196,57 @@ export function CartShipping({
             inputMode="numeric"
             autoComplete="postal-code"
             spellCheck={false}
-            placeholder="00000-000"
-            className={cn("h-11", focusRing)}
+            placeholder="CEP de entrega: 00000-000"
+            className={fieldClass}
           />
-          <Button
+          <button
             type="submit"
-            variant="outline"
             aria-disabled={loading}
-            className={cn("h-11 aria-disabled:opacity-60", focusRing)}
+            className={cn(darkButtonClass, "inline-flex items-center")}
           >
             {loading ? "Calculando…" : "Calcular frete"}
-          </Button>
+          </button>
         </div>
       </form>
 
       {notice && (
         <p
           role={notice.kind}
-          className={notice.kind === "alert" ? "mt-2 text-sm text-red-800" : "mt-2 text-sm text-gray-600"}
+          className={cn("mt-2.5 text-sm", notice.kind === "alert" ? "text-red-800" : "text-gray-600")}
         >
           {notice.text}
         </p>
       )}
 
       {stale && (
-        <p className="mt-2 text-sm text-amber-800">O carrinho mudou. Calcule o frete de novo.</p>
+        <p className="mt-2.5 text-sm text-amber-800">O carrinho mudou. Calcule o frete de novo.</p>
       )}
 
       {quote && !stale && (
-        <fieldset className="mt-3 space-y-2">
-          <legend className="text-sm font-medium text-navy-950">Opções de entrega</legend>
+        <fieldset className="mt-3 space-y-[7px]">
+          <legend className="mb-1 text-[12.5px] font-medium text-[#51607d]">Opções de entrega</legend>
           {quote.options.map((option) => (
-            <label
-              key={option.id}
-              className="flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-border p-2 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-950/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-navy-700"
-            >
+            <label key={option.id} className={optionClass}>
               <input
                 type="radio"
                 name="shipping-option"
-                className="mt-1 size-4"
+                className={radioClass}
                 checked={quote.selectedId === option.id}
                 onChange={() => handleChoose(option.id)}
               />
-              <span>
-                {`${optionLabel(option)} · ${formatBRL(option.priceCents)} · ${deliveryText(option.deliveryDays)}`}
+              <span className="min-w-0 flex-1 font-medium text-navy-950">
+                {optionLabel(option)}
+                <span className="block text-xs font-normal text-[#6b7a96]">
+                  {deliveryText(option.deliveryDays)}
+                </span>
+              </span>
+              <span className="shrink-0 font-semibold tabular-nums text-navy-950">
+                {formatBRL(option.priceCents)}
               </span>
             </label>
           ))}
         </fieldset>
       )}
-    </div>
+    </section>
   );
 }

@@ -1,19 +1,19 @@
-import { DEFAULT_PAYMENT_FEES, validatePaymentFees, type PaymentFees } from "@/lib/payments/fees";
+import { DEFAULT_PAYMENT_TERMS, validatePaymentTerms, type PaymentTerms } from "@/lib/payments/terms";
 import type { PaymentSettingsRepository } from "../types";
 
 // Implementação em memória, só para os testes.
 export function createMockPaymentSettingsRepository(): PaymentSettingsRepository {
-  let fees: PaymentFees = structuredClone(DEFAULT_PAYMENT_FEES);
+  let terms: PaymentTerms = structuredClone(DEFAULT_PAYMENT_TERMS);
 
   return {
     async get() {
-      return structuredClone(fees);
+      return structuredClone(terms);
     },
     async update(next) {
-      const problem = validatePaymentFees(next);
+      const problem = validatePaymentTerms(next);
       if (problem) throw new Error(problem);
-      fees = structuredClone(next);
-      return structuredClone(fees);
+      terms = structuredClone(next);
+      return structuredClone(terms);
     },
   };
 }

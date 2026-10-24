@@ -40,7 +40,7 @@ export function createMockOrderRepository(
       const itemsSum = draft.items.reduce((sum, i) => sum + i.unitPriceCents * i.quantity, 0);
       if (itemsSum !== draft.subtotalCents) throw new Error("subtotal não confere com os itens");
       const expectedTotal =
-        draft.subtotalCents - draft.discountCents + draft.shipping.cents + draft.feeCents;
+        draft.subtotalCents - draft.discountCents - draft.pixDiscountCents + draft.shipping.cents;
       if (draft.totalCents !== expectedTotal) throw new Error("total não confere");
 
       const id = crypto.randomUUID();
@@ -143,7 +143,7 @@ export function createMockOrderRepository(
         subtotalCents: order.subtotalCents,
         discountCents: order.discountCents,
         shippingCents: order.shipping.cents,
-        feeCents: order.feeCents,
+        pixDiscountCents: order.pixDiscountCents,
         totalCents: order.totalCents,
         paymentMethod: order.paymentMethod,
         trackingCode: order.trackingCode,

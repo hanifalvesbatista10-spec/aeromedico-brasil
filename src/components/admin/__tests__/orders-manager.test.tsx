@@ -46,8 +46,8 @@ function order(over: Partial<StoreOrder> = {}): StoreOrder {
     subtotalCents: 8000,
     discountCents: 800,
     couponCode: "VERAO10",
-    feeCents: 199,
-    totalCents: 9744,
+    pixDiscountCents: 360,
+    totalCents: 9185,
     paymentMethod: "pix",
     ...over,
   };
@@ -75,7 +75,7 @@ describe("OrdersManager: lista", () => {
     const text = plain(row.textContent);
     expect(text).toContain("AB-000001");
     expect(text).toContain("Maria Silva");
-    expect(text).toContain("R$ 97,44");
+    expect(text).toContain("R$ 91,85");
     expect(text).toContain("Pix");
     expect(text).toContain("Pago");
   });
@@ -136,8 +136,8 @@ describe("OrdersManager: detalhe", () => {
     expect(text).toContain("Subtotal R$ 80,00");
     expect(text).toContain("Desconto (VERAO10) -R$ 8,00");
     expect(text).toContain("Frete (Correios PAC) R$ 23,45");
-    expect(text).toContain("Taxa de pagamento R$ 1,99");
-    expect(text).toContain("Total R$ 97,44");
+    expect(text).toContain("Desconto no Pix -R$ 3,60");
+    expect(text).toContain("Total R$ 91,85");
   });
 });
 

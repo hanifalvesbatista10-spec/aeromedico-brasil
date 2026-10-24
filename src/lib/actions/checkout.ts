@@ -15,7 +15,7 @@ import type { OrderDraft } from "@/lib/types";
 
 // Cotação e criação do pedido. Leitura/escrita públicas, então tudo que vem do
 // navegador é tratado como pedido de cliente, nunca como verdade: preço, frete,
-// desconto e taxa são refeitos aqui. Erros esperados voltam como valor porque o
+// desconto e desconto do Pix são refeitos aqui. Erros esperados voltam como valor porque o
 // Next esconde a mensagem de erros lançados em Server Actions em produção.
 
 const DISABLED = "O pagamento pelo site ainda não está disponível. Finalize pelo WhatsApp.";
@@ -33,7 +33,7 @@ async function loadDeps() {
     store: repositories.store,
     coupons: repositories.coupons,
     shippingProvider: getShippingProvider(),
-    fees: await repositories.paymentSettings.get(),
+    terms: await repositories.paymentSettings.get(),
     now: new Date(),
   };
 }
@@ -128,7 +128,7 @@ export async function placeOrderAction(
     subtotalCents: quote.subtotalCents,
     discountCents: quote.discountCents,
     couponCode: quote.couponCode,
-    feeCents: quote.chosen.feeCents,
+    pixDiscountCents: quote.chosen.discountCents,
     totalCents: quote.chosen.totalCents,
     paymentMethod: quote.chosen.method,
     environment: getAsaasConfig()?.environment ?? "production",

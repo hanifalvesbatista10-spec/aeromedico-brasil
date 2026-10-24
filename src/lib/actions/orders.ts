@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getRepositories } from "@/lib/repositories";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { checkFulfillmentChange, type FulfillmentChange } from "@/lib/orders/fulfillment";
-import { paymentFeesSchema, type PaymentFeesForm } from "@/lib/validation/payment-fees";
-import type { PaymentFees } from "@/lib/payments/fees";
+import { paymentTermsSchema, type PaymentTermsForm } from "@/lib/validation/payment-terms";
+import type { PaymentTerms } from "@/lib/payments/terms";
 import type { StoreOrder } from "@/lib/types";
 
 // Mesmo padrão das ações da loja: administrador conferido ANTES de tudo e
@@ -42,10 +42,10 @@ export async function updateOrderFulfillment(
   }
 }
 
-export async function savePaymentFees(input: PaymentFeesForm): Promise<ActionResult<PaymentFees>> {
+export async function savePaymentTerms(input: PaymentTermsForm): Promise<ActionResult<PaymentTerms>> {
   await requireAdmin();
 
-  const parsed = paymentFeesSchema.safeParse(input);
+  const parsed = paymentTermsSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Confira os valores digitados." };
   }
@@ -55,7 +55,7 @@ export async function savePaymentFees(input: PaymentFeesForm): Promise<ActionRes
     revalidatePath("/admin/pedidos");
     return { ok: true, data: saved };
   } catch (error) {
-    console.error("[admin/pedidos] falha ao salvar as taxas", error instanceof Error ? error.name : "erro");
+    console.error("[admin/pedidos] falha ao salvar as condições de pagamento", error instanceof Error ? error.name : "erro");
     return { ok: false, error: SAVE_FAILED };
   }
 }

@@ -4,10 +4,10 @@ import { priceCart } from "@/lib/cart/pricing";
 import { formatBRL } from "@/lib/money";
 import {
   paymentOptions,
-  type PaymentFees,
   type PaymentMethod,
   type PaymentOption,
-} from "@/lib/payments/fees";
+  type PaymentTerms,
+} from "@/lib/payments/terms";
 import type { CouponRepository, StoreRepository } from "@/lib/repositories/types";
 import { normalizeCep } from "@/lib/shipping/cep";
 import { buildShippingItems } from "@/lib/shipping/items";
@@ -18,7 +18,7 @@ import { MAX_COUPON_CODE_LENGTH } from "@/lib/validation/coupons";
 
 // Recálculo do pedido no SERVIDOR. O navegador só diz o que escolheu (itens,
 // cupom, opção de frete, forma de pagamento) e o que viu (frete e total);
-// preço, desconto, frete e taxa são sempre refeitos aqui.
+// preço, desconto, frete e desconto do Pix são sempre refeitos aqui.
 
 export const checkoutSelectionSchema = z.object({
   lines: cartLinesSchema,
@@ -40,7 +40,7 @@ export interface CheckoutDeps {
   store: Pick<StoreRepository, "listProductDetails" | "listCategories">;
   coupons: Pick<CouponRepository, "findActiveByCode">;
   shippingProvider: ShippingProvider | null;
-  fees: PaymentFees;
+  terms: PaymentTerms;
   now: Date;
 }
 
@@ -52,6 +52,8 @@ export type CheckoutQuote =
       couponCode: string | null;
       shipping: { optionId: string; label: string; cents: number; cep: string };
       orderCents: number;
+      /** Condições vigentes (desconto do Pix, parcelas): o carrinho calcula os totais com elas. */
+      terms: PaymentTerms;
       options: PaymentOption[];
       chosen: PaymentOption;
       items: OrderItemInput[];
@@ -140,8 +142,10 @@ export async function computeCheckoutQuote(
     );
   }
 
-  const orderCents = cart.subtotalCents - discountCents + option.priceCents;
-  const options = paymentOptions(orderCents, deps.fees);
+  // O desconto do Pix vale sobre os produtos (já sem o cupom), nunca sobre o frete.
+  const productsCents = cart.subtotalCents - discountCents;
+  const orderCents = productsCents + option.priceCents;
+  const options = paymentOptions({ productsCents, shippingCents: option.priceCents }, deps.terms);
   const chosen = options.find((item) => item.method === (selection.method as PaymentMethod));
   // Forma que não está sendo oferecida (ex.: parcelado com máximo de 1x): nunca estoura.
   if (!chosen) return fail("invalid-input", "Algo deu errado com os dados do pedido. Atualize a página e tente de novo.");
@@ -170,6 +174,7 @@ export async function computeCheckoutQuote(
       cep,
     },
     orderCents,
+    terms: deps.terms,
     options,
     chosen,
     items: cart.lines.map((line) => ({
