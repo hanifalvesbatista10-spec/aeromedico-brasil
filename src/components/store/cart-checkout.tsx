@@ -44,6 +44,8 @@ const emptyForm = {
   state: "",
 };
 
+const ERROR_ID = "checkout-error";
+
 /** 500 → "5"; 550 → "5,5". */
 function percentText(bp: number): string {
   return (bp / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
@@ -109,7 +111,9 @@ export function CartCheckout({
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
   // Cada aviso tem um `id`: o mesmo texto repetido remonta o alerta e é anunciado de novo.
-  const [notice, setNotice] = useState<{ text: string; id: number } | null>(null);
+  const [notice, setNotice] = useState<{ text: string; id: number; context: string } | null>(null);
+  // Campo do formulário com problema (o foco vai até ele e a mensagem o descreve).
+  const [invalidField, setInvalidField] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const latestRequest = useRef(0);
   const noticeCount = useRef(0);
@@ -120,13 +124,22 @@ export function CartCheckout({
   const signature = serializeCart(lines);
   const active = enabled && shipping !== null;
 
+  // Um aviso só vale para o que estava na tela quando ele surgiu: mexer no carrinho, no cupom
+  // ou trocar a entrega o esconde (ele falaria de valores que já não conferem).
+  const noticeContext = `${signature}|${couponCode}|${shipping?.optionId}|${shipping?.cep}`;
+  const visibleNotice = notice && notice.context === noticeContext ? notice : null;
+
   function showNotice(text: string) {
     noticeCount.current += 1;
-    setNotice({ text, id: noticeCount.current });
+    setNotice({ text, id: noticeCount.current, context: noticeContext });
   }
 
   useEffect(() => {
-    if (!active || !shipping) return;
+    if (!active || !shipping) {
+      // Uma cotação ainda em andamento não pode mais mudar nada quando ela chegar.
+      latestRequest.current += 1;
+      return;
+    }
     const request = ++latestRequest.current;
     quoteCheckoutAction({
       lines,
@@ -180,8 +193,11 @@ export function CartCheckout({
 
   // O botão que envia está no resumo, longe do aviso (no celular, fora da tela): leva o aviso à vista.
   useEffect(() => {
-    if (notice) noticeRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, [notice]);
+    if (visibleNotice) {
+      const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      noticeRef.current?.scrollIntoView?.({ block: "center", behavior: calm ? "auto" : "smooth" });
+    }
+  }, [visibleNotice]);
 
   const shippingCents = shipping?.priceCents ?? 0;
   const options =
@@ -196,10 +212,15 @@ export function CartCheckout({
   const pixPercent = quote.status === "ready" ? quote.terms.pixDiscountBp : 0;
 
   function field(key: keyof typeof emptyForm) {
+    const invalid = invalidField === key;
     return {
       value: form[key],
-      onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-        setForm((current) => ({ ...current, [key]: event.target.value })),
+      "aria-invalid": invalid || undefined,
+      "aria-describedby": invalid ? ERROR_ID : undefined,
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (invalid) setInvalidField(null);
+        setForm((current) => ({ ...current, [key]: event.target.value }));
+      },
     };
   }
 
@@ -217,9 +238,14 @@ export function CartCheckout({
     const buyer = { ...form, cep: shipping.cep };
     const parsed = buyerSchema.safeParse(buyer);
     if (!parsed.success) {
-      showNotice(parsed.error.issues[0]?.message ?? "Confira os dados informados.");
+      const issue = parsed.error.issues[0];
+      const key = typeof issue?.path[0] === "string" ? issue.path[0] : null;
+      setInvalidField(key);
+      showNotice(issue?.message ?? "Confira os dados informados.");
+      if (key) document.getElementById(`buyer-${key}`)?.focus();
       return;
     }
+    setInvalidField(null);
 
     sendingRef.current = true;
     setSending(true);
@@ -306,7 +332,7 @@ export function CartCheckout({
                       {percentText(pixPercent)}% OFF
                     </span>
                   )}
-                  {hint && <span className="block text-xs font-normal text-[#6b7a96]">{hint}</span>}
+                  {hint && <span className="block text-xs font-normal text-[#566580]">{hint}</span>}
                 </span>
                 <span className="shrink-0 font-semibold tabular-nums text-navy-950">
                   {formatBRL(option.totalCents)}
@@ -371,14 +397,14 @@ export function CartCheckout({
             </div>
             <div className="grid gap-1">
               <Label htmlFor="buyer-cep" className={labelClass}>
-                CEP <span className="font-normal text-[#8a97b0]">(igual ao do frete)</span>
+                CEP <span className="font-normal text-[#566580]">(igual ao do frete)</span>
               </Label>
               <Input
                 id="buyer-cep"
                 readOnly
                 autoComplete="postal-code"
                 value={formatCep(shipping.cep)}
-                className={cn(fieldClass, "bg-[#eef1f7] text-[#7b88a3] shadow-[inset_0_1px_2px_rgba(14,20,33,0.06)]")}
+                className={cn(fieldClass, "bg-[#eef1f7] text-[#566580] shadow-[inset_0_1px_2px_rgba(14,20,33,0.06)]")}
               />
             </div>
             <div className="grid gap-1">
@@ -432,14 +458,15 @@ export function CartCheckout({
           </div>
         </fieldset>
 
-        {notice && (
+        {visibleNotice && (
           <p
-            key={notice.id}
+            key={visibleNotice.id}
+            id={ERROR_ID}
             ref={noticeRef}
             role="alert"
             className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
-            {notice.text}
+            {visibleNotice.text}
           </p>
         )}
       </form>
@@ -473,15 +500,20 @@ export function CartCheckout({
     >
       {/* No celular este bloco é a barra fixa de baixo (total + botão); no computador, o fim do resumo. */}
       <div
+        data-cart-bar=""
         className={cn(
           "fixed inset-x-0 bottom-0 z-30 flex items-center gap-4 border-t border-navy-950/10 bg-white/95 px-4 py-3 shadow-[0_-10px_30px_-12px_rgba(14,20,33,0.35)] backdrop-blur",
           "lg:static lg:mt-[18px] lg:block lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none"
         )}
       >
-        <div className="min-w-0 lg:hidden">
+        {/* O leitor de tela já leu o total do resumo: aqui é só para quem enxerga. */}
+        <div aria-hidden="true" className="min-w-0 lg:hidden">
           <p className="text-xs text-gray-600">{totalLabel}</p>
           <p className="font-heading text-xl font-extrabold tabular-nums text-navy-950">{formatBRL(totalCents)}</p>
         </div>
+        <span role="status" className="sr-only">
+          {sending ? "Abrindo o pagamento…" : ""}
+        </span>
         <button
           type="submit"
           form="checkout-form"

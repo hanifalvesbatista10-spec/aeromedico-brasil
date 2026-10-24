@@ -15,6 +15,7 @@ import {
   cardTitleClass,
   darkButtonClass,
   fieldClass,
+  labelClass,
   optionClass,
   radioClass,
 } from "./cart-ui";
@@ -62,11 +63,14 @@ function deliveryText(days: number | null): string {
 export function CartShipping({
   lines,
   signature,
+  priceOverrides,
   onSelect,
   onAnnounce,
 }: {
   lines: CartLine[];
   signature: string;
+  /** Preços que o servidor corrigiu (por id da opção): valem no lugar dos da cotação. */
+  priceOverrides?: Record<string, number>;
   onSelect: (selection: ShippingSelection | null) => void;
   onAnnounce: (text: string) => void;
 }) {
@@ -77,6 +81,7 @@ export function CartShipping({
   const latestRequest = useRef(0);
 
   const stale = quote !== null && quote.signature !== signature;
+  const priceOf = (option: ShippingOption) => priceOverrides?.[option.id] ?? option.priceCents;
 
   // Sair da tela (ex.: erro ao reprecificar) desfaz a escolha: sem as opções
   // visíveis, o resumo não pode continuar cobrando um frete que ninguém vê.
@@ -93,7 +98,7 @@ export function CartShipping({
       optionId: option.id,
       label: optionLabel(option),
       cep: current.cep,
-      priceCents: option.priceCents,
+      priceCents: priceOf(option),
       signature: current.signature,
     });
     return option;
@@ -146,7 +151,7 @@ export function CartShipping({
         onAnnounce(
           `Frete calculado: ${count} ${count === 1 ? "opção" : "opções"}. Entrega ${optionLabel(
             chosen
-          )} selecionada: ${formatBRL(chosen.priceCents)}.`
+          )} selecionada: ${formatBRL(priceOf(chosen))}.`
         );
       }
     } catch {
@@ -167,7 +172,7 @@ export function CartShipping({
     setQuote(next);
     const chosen = select(next, id);
     if (chosen) {
-      onAnnounce(`Entrega ${optionLabel(chosen)} selecionada: ${formatBRL(chosen.priceCents)}.`);
+      onAnnounce(`Entrega ${optionLabel(chosen)} selecionada: ${formatBRL(priceOf(chosen))}.`);
     }
   }
 
@@ -185,7 +190,7 @@ export function CartShipping({
         }}
         className="space-y-1.5"
       >
-        <Label htmlFor="cart-cep" className="sr-only">
+        <Label htmlFor="cart-cep" className={labelClass}>
           CEP de entrega
         </Label>
         <div className="flex gap-2.5">
@@ -196,7 +201,7 @@ export function CartShipping({
             inputMode="numeric"
             autoComplete="postal-code"
             spellCheck={false}
-            placeholder="CEP de entrega: 00000-000"
+            placeholder="00000-000"
             className={fieldClass}
           />
           <button
@@ -236,12 +241,12 @@ export function CartShipping({
               />
               <span className="min-w-0 flex-1 font-medium text-navy-950">
                 {optionLabel(option)}
-                <span className="block text-xs font-normal text-[#6b7a96]">
+                <span className="block text-xs font-normal text-[#566580]">
                   {deliveryText(option.deliveryDays)}
                 </span>
               </span>
               <span className="shrink-0 font-semibold tabular-nums text-navy-950">
-                {formatBRL(option.priceCents)}
+                {formatBRL(priceOf(option))}
               </span>
             </label>
           ))}

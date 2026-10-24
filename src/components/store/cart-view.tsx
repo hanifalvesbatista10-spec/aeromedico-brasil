@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Package } from "lucide-react";
@@ -47,7 +47,7 @@ const stepper = cn(
 );
 
 const textAction = cn(
-  "inline-flex min-h-11 items-center px-1 text-[12.5px] font-medium text-[#6b7a96] underline underline-offset-[3px] hover:text-navy-950 pointer-fine:min-h-8",
+  "inline-flex min-h-11 items-center px-1 text-[12.5px] font-medium text-[#566580] underline underline-offset-[3px] hover:text-navy-950 pointer-fine:min-h-8",
   focusRing
 );
 
@@ -88,6 +88,8 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
   const removeCouponRef = useRef<HTMLButtonElement>(null);
   // Entrega escolhida: só vale enquanto o carrinho for o mesmo da cotação.
   const [shippingChoice, setShippingChoice] = useState<ShippingSelection | null>(null);
+  // Preços de frete que o servidor corrigiu (por id da opção); somem quando a escolha é desfeita.
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({});
   const latestRequest = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +170,20 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
       justApplied.current = false;
     }
   }, [acceptedCode]);
+
+  // Identidade estável: o CartShipping desfaz a escolha sempre que esta função muda.
+  const handleSelectShipping = useCallback((selection: ShippingSelection | null) => {
+    if (selection === null) setPriceOverrides((current) => (Object.keys(current).length > 0 ? {} : current));
+    setShippingChoice(selection);
+  }, []);
+
+  // Vindo do mini-carrinho (#resumo-do-pedido): o resumo só existe depois de o carrinho carregar.
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    if (window.location.hash === "#resumo-do-pedido") {
+      document.getElementById("resumo-do-pedido")?.scrollIntoView?.({ block: "start" });
+    }
+  }, [state.status]);
 
   function dropNote(key: string) {
     setStockNotes(({ [key]: _dropped, ...rest }) => {
@@ -305,7 +321,7 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
       baseLines.push({
         testId: "cart-discount",
         label: `Desconto (${coupon.code})`,
-        value: `-${formatBRL(discountCents)}`,
+        value: `− ${formatBRL(discountCents)}`,
         tone: "saving",
       });
     }
@@ -353,11 +369,11 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
                     {line.name}
                   </Link>
                   {(line.size || line.colorName) && (
-                    <p className="mt-0.5 text-[12.5px] text-[#6b7a96]">
+                    <p className="mt-0.5 text-[12.5px] text-[#566580]">
                       {[line.size, line.colorName].filter(Boolean).join(" · ")}
                     </p>
                   )}
-                  <p className="mt-0.5 text-[12.5px] text-[#6b7a96]">{formatBRL(line.unitPriceCents)} cada</p>
+                  <p className="mt-0.5 text-[12.5px] text-[#566580]">{formatBRL(line.unitPriceCents)} cada</p>
                   {stockNotes[line.key] !== undefined && (
                     <p className="mt-2 text-sm text-amber-800">
                       Só temos {stockNotes[line.key]}{" "}
@@ -504,7 +520,8 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
       <CartShipping
         lines={cart.lines}
         signature={cartSignature}
-        onSelect={setShippingChoice}
+        priceOverrides={priceOverrides}
+        onSelect={handleSelectShipping}
         onAnnounce={setAnnouncement}
       />
     );
@@ -520,9 +537,10 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
           productsCents={productsCents}
           baseLines={baseLines}
           // O servidor informou outro preço para o frete escolhido: o resumo passa a usá-lo.
-          onShippingChange={(priceCents) =>
-            setShippingChoice((current) => (current ? { ...current, priceCents } : current))
-          }
+          onShippingChange={(priceCents) => {
+            if (shipping) setPriceOverrides((current) => ({ ...current, [shipping.optionId]: priceCents }));
+            setShippingChoice((current) => (current ? { ...current, priceCents } : current));
+          }}
           // O servidor discorda dos valores do carrinho (preço ou cupom): reprecifica.
           onStale={() => setAttempt((n) => n + 1)}
         >
@@ -564,5 +582,5 @@ export function CartView({ checkoutEnabled = false }: { checkoutEnabled?: boolea
 }
 
 function LoadingText() {
-  return <p className="min-h-24 text-sm text-gray-600">Carregando seu carrinho…</p>;
+  return <p className="min-h-[50vh] text-sm text-gray-600">Carregando seu carrinho…</p>;
 }

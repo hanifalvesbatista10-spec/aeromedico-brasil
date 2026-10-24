@@ -436,3 +436,75 @@ describe("CartCheckout: ajustes de acessibilidade e celular", () => {
     expect(screen.getByText("Pagamento processado pelo Asaas")).toBeTruthy();
   });
 });
+
+describe("CartCheckout: ajustes da revisão", () => {
+  it("o aviso some quando o cliente troca a entrega (ele já não vale para o que está na tela)", async () => {
+    const { rerender } = render(<Checkout />);
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    fireEvent.click(finish());
+    expect(await screen.findByRole("alert")).toBeTruthy();
+
+    rerender(<Checkout shipping={{ ...shipping, optionId: "2", priceCents: 4120, label: "Correios SEDEX" }} />);
+    await screen.findByRole("group", { name: "Forma de pagamento" });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("cotação que chega depois de o frete ter sumido não muda mais nada", async () => {
+    let release!: (value: unknown) => void;
+    quoteCheckoutAction.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
+    const { rerender } = render(<Checkout />);
+    rerender(<Checkout shipping={null} />);
+
+    await act(async () => {
+      release({ ok: false, code: "shipping-changed", error: "O frete mudou.", newShippingCents: 2500 });
+    });
+
+    expect(onShippingChange).not.toHaveBeenCalled();
+  });
+
+  it("erro do formulário: o campo com problema recebe o foco, fica marcado e é descrito pela mensagem", async () => {
+    await ready();
+    fillBuyer({ "E-mail": "sem-arroba" });
+    fireEvent.click(finish());
+
+    const alert = await screen.findByRole("alert");
+    const email = screen.getByLabelText("E-mail");
+    expect(email.getAttribute("aria-invalid")).toBe("true");
+    expect(email.getAttribute("aria-describedby")).toBe(alert.id);
+    expect(document.activeElement).toBe(email);
+    // Os outros campos não ficam marcados.
+    expect(screen.getByLabelText("Nome completo").getAttribute("aria-invalid")).not.toBe("true");
+  });
+
+  it("ao corrigir o campo, a marca de erro sai", async () => {
+    await ready();
+    fillBuyer({ "E-mail": "sem-arroba" });
+    fireEvent.click(finish());
+    await screen.findByRole("alert");
+
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "maria@exemplo.com" } });
+    expect(screen.getByLabelText("E-mail").getAttribute("aria-invalid")).not.toBe("true");
+  });
+
+  it("enquanto abre o pagamento, o leitor de tela é avisado (região de status ao lado do botão)", async () => {
+    placeOrderAction.mockImplementation(() => new Promise(() => {}));
+    await ready();
+    fillBuyer();
+    fireEvent.click(finish());
+    await screen.findByRole("button", { name: "Abrindo o pagamento…" });
+    const status = screen.getAllByRole("status").find((el) => el.textContent === "Abrindo o pagamento…");
+    expect(status).toBeTruthy();
+  });
+
+  it("o total repetido da barra do celular não é lido de novo (o leitor já leu o do resumo)", async () => {
+    await ready();
+    const bar = finish().parentElement!;
+    const repeated = bar.querySelector('[aria-hidden="true"]');
+    expect(plain(repeated?.textContent ?? "")).toContain("R$ 61,45");
+  });
+
+  it("a barra fixa leva um marcador para a página reservar espaço no fim (rodapé não fica coberto)", async () => {
+    await ready();
+    expect(finish().parentElement?.hasAttribute("data-cart-bar")).toBe(true);
+  });
+});

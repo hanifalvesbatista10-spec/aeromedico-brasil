@@ -249,3 +249,17 @@ describe("mock order repository: ajustes da revisão", () => {
     expect((await repo.getById(normal.id))?.environment).toBe("production");
   });
 });
+
+describe("mock order repository: desconto do Pix na conta do total", () => {
+  it("aceita total = subtotal − cupom − Pix + frete e recusa o que não fecha", async () => {
+    const repo = setup();
+    const pix = { paymentMethod: "pix" as const, pixDiscountCents: 250, totalCents: 9980 - 998 - 250 + 2345 };
+    const order = await repo.create(draft(pix));
+    expect((await repo.getById(order.id))?.pixDiscountCents).toBe(250);
+    expect((await repo.getPublic(order.id, order.accessToken))?.pixDiscountCents).toBe(250);
+
+    await expect(repo.create(draft({ ...pix, totalCents: pix.totalCents + 1 }))).rejects.toThrow();
+    // O desconto do Pix esquecido no total (a conta antiga) não fecha mais.
+    await expect(repo.create(draft({ ...pix, totalCents: 9980 - 998 + 2345 }))).rejects.toThrow();
+  });
+});

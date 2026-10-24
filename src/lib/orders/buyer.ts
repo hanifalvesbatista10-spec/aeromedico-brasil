@@ -38,45 +38,46 @@ export const buyerSchema = z
     state: z.string(),
   })
   .transform((raw, ctx): Buyer => {
-    const fail = (message: string) => {
-      ctx.addIssue({ code: "custom", message });
+    // `field` diz em qual campo está o erro (o formulário leva o foco até ele).
+    const fail = (message: string, field: string) => {
+      ctx.addIssue({ code: "custom", message, path: [field] });
       return z.NEVER;
     };
     const text = (value: string | null | undefined) => (value ?? "").trim();
 
     const name = text(raw.name);
-    if (name.length < 2 || name.length > 120) return fail("Informe seu nome completo.");
+    if (name.length < 2 || name.length > 120) return fail("Informe seu nome completo.", "name");
 
     const email = text(raw.email).toLowerCase();
     if (email.length > 200 || !z.email().safeParse(email).success) {
-      return fail("Informe um e-mail válido.");
+      return fail("Informe um e-mail válido.", "email");
     }
 
     const phone = raw.phone.replace(/\D/g, "");
     if (phone.length !== 10 && phone.length !== 11) {
-      return fail("Informe um telefone com DDD (10 ou 11 números).");
+      return fail("Informe um telefone com DDD (10 ou 11 números).", "phone");
     }
 
     const cep = normalizeCep(raw.cep);
-    if (!cep) return fail("Informe um CEP com 8 números.");
+    if (!cep) return fail("Informe um CEP com 8 números.", "cep");
 
     const street = text(raw.street);
-    if (!street || street.length > 200) return fail("Informe a rua.");
+    if (!street || street.length > 200) return fail("Informe a rua.", "street");
 
     const number = text(raw.number);
-    if (!number || number.length > 20) return fail("Informe o número (ou S/N).");
+    if (!number || number.length > 20) return fail("Informe o número (ou S/N).", "number");
 
     const district = text(raw.district);
-    if (!district || district.length > 100) return fail("Informe o bairro.");
+    if (!district || district.length > 100) return fail("Informe o bairro.", "district");
 
     const city = text(raw.city);
-    if (!city || city.length > 100) return fail("Informe a cidade.");
+    if (!city || city.length > 100) return fail("Informe a cidade.", "city");
 
     const state = text(raw.state).toUpperCase();
-    if (!UFS.includes(state)) return fail("Informe o estado (sigla com 2 letras, como SP).");
+    if (!UFS.includes(state)) return fail("Informe o estado (sigla com 2 letras, como SP).", "state");
 
     const complement = text(raw.complement);
-    if (complement.length > 100) return fail("O complemento está muito longo.");
+    if (complement.length > 100) return fail("O complemento está muito longo.", "complement");
 
     return {
       customer: { name, email, phone },

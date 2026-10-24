@@ -237,11 +237,11 @@ export function OrderDialog({
             {order.discountCents > 0 && (
               <Row
                 label={order.couponCode ? `Desconto (${order.couponCode})` : "Desconto"}
-                value={`-${formatBRL(order.discountCents)}`}
+                value={`− ${formatBRL(order.discountCents)}`}
               />
             )}
             {order.pixDiscountCents > 0 && (
-              <Row label="Desconto no Pix" value={`-${formatBRL(order.pixDiscountCents)}`} />
+              <Row label="Desconto no Pix" value={`− ${formatBRL(order.pixDiscountCents)}`} />
             )}
             <Row label={`Frete (${order.shipping.label})`} value={formatBRL(order.shipping.cents)} />
             <Row label="Total" value={formatBRL(order.totalCents)} strong />

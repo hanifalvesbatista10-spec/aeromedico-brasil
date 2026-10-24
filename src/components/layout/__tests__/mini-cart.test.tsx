@@ -181,7 +181,8 @@ describe("Mini-carrinho do ícone", () => {
     const panel = await screen.findByTestId("mini-cart");
     expect(panel.getAttribute("data-dismissed")).toBe("false");
 
-    fireEvent.keyDown(screen.getByTestId("cart-hover"), { key: "Escape" });
+    // Com o mouse sobre o ícone e o foco em outro lugar, o Escape chega ao documento, não ao ícone.
+    fireEvent.keyDown(document.body, { key: "Escape" });
     expect(panel.getAttribute("data-dismissed")).toBe("true");
 
     fireEvent.mouseLeave(screen.getByTestId("cart-hover"));
@@ -203,5 +204,57 @@ describe("Mini-carrinho do ícone", () => {
     expect(panel.className).toContain("invisible");
     expect(panel.className).toContain("group-hover:visible");
     expect(panel.className).toContain("group-has-[:focus-visible]:visible");
+  });
+});
+
+describe("Mini-carrinho: ajustes da revisão", () => {
+  it("Escape com o foco dentro do painel devolve o foco ao ícone (o foco não cai no vazio)", async () => {
+    seed([{ productId: "camisa", variantId: "m", quantity: 1 }]);
+    render(<CartLink />);
+    hover();
+    await screen.findByTestId("mini-cart");
+    const inside = await screen.findByRole("link", { name: "Ver carrinho" });
+    inside.focus();
+    expect(document.activeElement).toBe(inside);
+
+    fireEvent.keyDown(inside, { key: "Escape" });
+
+    expect(screen.getByTestId("mini-cart").getAttribute("data-dismissed")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Carrinho, 1 item" }));
+  });
+
+  it("voltar com o mouse ao ícone reabre o painel depois de um Escape", async () => {
+    seed([{ productId: "camisa", variantId: "m", quantity: 1 }]);
+    render(<CartLink />);
+    hover();
+    const panel = await screen.findByTestId("mini-cart");
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(panel.getAttribute("data-dismissed")).toBe("true");
+
+    hover();
+    expect(panel.getAttribute("data-dismissed")).toBe("false");
+  });
+
+  it("em aparelho sem mouse (toque) passar o dedo não monta o painel nem consulta preços", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: false, media: query })) as unknown as typeof window.matchMedia;
+    try {
+      seed([{ productId: "camisa", variantId: "m", quantity: 1 }]);
+      render(<CartLink />);
+      hover();
+      expect(screen.queryByTestId("mini-cart")).toBeNull();
+      expect(priceCartAction).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it("em tela estreita o painel cabe (não passa da borda esquerda do aparelho)", async () => {
+    seed([{ productId: "camisa", variantId: "m", quantity: 1 }]);
+    render(<CartLink />);
+    hover();
+    const panel = await screen.findByTestId("mini-cart");
+    expect(panel.className).toContain("max-w-[calc(100vw-4.5rem)]");
+    expect(panel.className).toContain("xl:max-w-[calc(100vw-2rem)]");
   });
 });

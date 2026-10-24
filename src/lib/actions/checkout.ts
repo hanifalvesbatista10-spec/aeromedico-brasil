@@ -18,7 +18,7 @@ import type { OrderDraft } from "@/lib/types";
 // desconto e desconto do Pix são refeitos aqui. Erros esperados voltam como valor porque o
 // Next esconde a mensagem de erros lançados em Server Actions em produção.
 
-const DISABLED = "O pagamento pelo site ainda não está disponível. Finalize pelo WhatsApp.";
+const DISABLED = "O pagamento pelo site ainda não está disponível. Volte em breve.";
 const QUOTE_UNAVAILABLE = "Não foi possível calcular o pagamento agora. Tente de novo.";
 // Nunca é dito ao comprador que o pagamento foi cobrado: o link só é entregue depois de o
 // pedido estar vinculado ao checkout, então nesta mensagem nada foi cobrado.

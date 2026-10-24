@@ -125,7 +125,7 @@ describe("placeOrderAction: checkout desligado ou entrada ruim", () => {
       expect(result).toEqual({
         ok: false,
         code: "disabled",
-        error: "O pagamento pelo site ainda não está disponível. Finalize pelo WhatsApp.",
+        error: "O pagamento pelo site ainda não está disponível. Volte em breve.",
       });
       expect(create).not.toHaveBeenCalled();
     }
@@ -321,5 +321,17 @@ describe("placeOrderAction: ambiente do pedido", () => {
     getAsaasConfig.mockReturnValue({ ...asaasConfig, environment: "production" });
     await placeOrderAction(selection(), buyer);
     expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ environment: "production" }));
+  });
+});
+
+describe("quoteCheckoutAction: texto quando o pagamento está desligado", () => {
+  it("não manda o comprador para o WhatsApp", async () => {
+    getAsaasConfig.mockReturnValue(null);
+    const result = await quoteCheckoutAction(selection());
+    expect(result).toEqual({
+      ok: false,
+      code: "unavailable",
+      error: "O pagamento pelo site ainda não está disponível. Volte em breve.",
+    });
   });
 });

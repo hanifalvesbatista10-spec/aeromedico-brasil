@@ -195,3 +195,17 @@
     @apply font-heading;
   }
 }
+
+/* Carrinho no celular: a barra fixa "Total + Finalizar pedido" não pode cobrir o rodapé nem o campo
+   que está sendo digitado. Some enquanto algum campo do formulário tem foco (teclado virtual). */
+@media (max-width: 1023px) {
+  html:has([data-cart-bar]) {
+    scroll-padding-block: 5rem 6rem;
+  }
+  body:has([data-cart-bar]) {
+    padding-bottom: 5.5rem;
+  }
+  body:has(#checkout-form :focus-within) [data-cart-bar] {
+    display: none;
+  }
+}

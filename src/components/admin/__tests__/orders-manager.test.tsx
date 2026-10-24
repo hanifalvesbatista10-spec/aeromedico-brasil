@@ -134,9 +134,9 @@ describe("OrdersManager: detalhe", () => {
     expect(text).toContain("2x Camiseta Aeromédico");
     expect(text).toContain("M, Preta");
     expect(text).toContain("Subtotal R$ 80,00");
-    expect(text).toContain("Desconto (VERAO10) -R$ 8,00");
+    expect(text).toContain("Desconto (VERAO10) − R$ 8,00");
     expect(text).toContain("Frete (Correios PAC) R$ 23,45");
-    expect(text).toContain("Desconto no Pix -R$ 3,60");
+    expect(text).toContain("Desconto no Pix − R$ 3,60");
     expect(text).toContain("Total R$ 91,85");
   });
 });

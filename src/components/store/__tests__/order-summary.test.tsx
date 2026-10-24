@@ -59,12 +59,12 @@ describe("OrderSummary", () => {
 
     rerender(<OrderSummary order={order({ discountCents: 998, totalCents: 14325 - 998 })} />);
     expect(text()).toContain("Desconto");
-    expect(text()).toContain("-R$ 9,98");
+    expect(text()).toContain("− R$ 9,98");
     expect(text()).not.toContain("Desconto no Pix");
 
     rerender(<OrderSummary order={order({ pixDiscountCents: 600, totalCents: 14325 - 600 })} />);
     expect(text()).toContain("Desconto no Pix");
-    expect(text()).toContain("-R$ 6,00");
+    expect(text()).toContain("− R$ 6,00");
   });
 
   it("rastreio só aparece quando existe", () => {

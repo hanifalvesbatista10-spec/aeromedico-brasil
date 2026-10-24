@@ -88,3 +88,22 @@ describe("buyerSchema", () => {
     expect(parse({ complement: "a".repeat(101) }).success).toBe(false);
   });
 });
+
+describe("buyerSchema: o erro diz em qual campo está", () => {
+  const field = (over: Record<string, string>) => {
+    const result = buyerSchema.safeParse(input(over));
+    return result.success ? null : result.error.issues[0]?.path[0];
+  };
+
+  it("cada validação aponta o seu campo", () => {
+    expect(field({ name: "M" })).toBe("name");
+    expect(field({ email: "sem-arroba" })).toBe("email");
+    expect(field({ phone: "123" })).toBe("phone");
+    expect(field({ street: "" })).toBe("street");
+    expect(field({ number: "" })).toBe("number");
+    expect(field({ district: "" })).toBe("district");
+    expect(field({ city: "" })).toBe("city");
+    expect(field({ state: "XX" })).toBe("state");
+    expect(field({ complement: "x".repeat(101) })).toBe("complement");
+  });
+});

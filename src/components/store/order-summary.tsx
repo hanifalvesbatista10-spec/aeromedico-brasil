@@ -104,10 +104,10 @@ export function OrderSummary({
       <dl className="mt-6 space-y-2">
         <Row label="Subtotal" value={formatBRL(order.subtotalCents)} />
         {order.discountCents > 0 && (
-          <Row label="Desconto" value={`-${formatBRL(order.discountCents)}`} />
+          <Row label="Desconto" value={`− ${formatBRL(order.discountCents)}`} />
         )}
         {order.pixDiscountCents > 0 && (
-          <Row label="Desconto no Pix" value={`-${formatBRL(order.pixDiscountCents)}`} />
+          <Row label="Desconto no Pix" value={`− ${formatBRL(order.pixDiscountCents)}`} />
         )}
         <Row label="Frete" value={formatBRL(order.shippingCents)} />
         <Row label="Total" value={formatBRL(order.totalCents)} strong />

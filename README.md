@@ -39,7 +39,7 @@ Preencha `.env.local`:
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | URL pública do site (metadata, sitemap e JSON-LD). Local: `http://localhost:3000`. |
 | `NEXT_PUBLIC_GA_ID` / `NEXT_PUBLIC_META_PIXEL_ID` | Não | Os scripts de analytics só carregam se a variável existir. |
 | `MELHOR_ENVIO_TOKEN`, `STORE_ORIGIN_CEP`, `MELHOR_ENVIO_CONTACT_EMAIL`, `MELHOR_ENVIO_ENV` | Não | Frete automático do carrinho (Melhor Envio). **Só servidor** (sem `NEXT_PUBLIC`). Precisam estar as três primeiras para o frete calcular; `MELHOR_ENVIO_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). Passo a passo na seção da loja. |
-| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_ENV`, `ORDERS_RPC_SECRET` | Não | Pagamento pelo site (Asaas Checkout). **Só servidor.** O botão "Pagar" só aparece com as quatro definidas **mais** o frete e `NEXT_PUBLIC_SITE_URL`; senão o carrinho avisa que o pagamento ainda não está disponível. `ASAAS_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). `ORDERS_RPC_SECRET` deve ser o mesmo valor cujo hash está no banco. Roteiro em [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md). |
+| `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_ENV`, `ORDERS_RPC_SECRET` | Não | Pagamento pelo site (Asaas Checkout). **Só servidor.** O botão "Finalizar pedido" só aparece com as quatro definidas **mais** o frete e `NEXT_PUBLIC_SITE_URL`; senão o carrinho avisa que o pagamento ainda não está disponível. `ASAAS_ENV=production` liga a conta real (qualquer outro valor usa o sandbox). `ORDERS_RPC_SECRET` deve ser o mesmo valor cujo hash está no banco. Roteiro em [`docs/runbooks/asaas-sandbox.md`](docs/runbooks/asaas-sandbox.md). |
 
 Sem as duas variáveis do Supabase, a leitura de conteúdo e o painel falham com
 um erro explícito (`src/lib/supabase/env.ts`); não há fallback silencioso para
@@ -168,7 +168,7 @@ preenchidas com informação real antes de publicar.
   Faltam as fotos reais de cada cor.
 - **Carrinho pronto** (`/carrinho`, ícone no cabeçalho, botão "Adicionar ao carrinho"
   em cada produto). O navegador guarda só ids e quantidades; nome, foto, preço e
-  estoque vêm do servidor. A finalização é um **pedido**: ao clicar em "Pagar" o site cria o
+  estoque vêm do servidor. A finalização é um **pedido**: ao clicar em "Finalizar pedido" o site cria o
   pedido e leva ao pagamento (veja "Pagamento pelo site" abaixo). Não há compra por
   WhatsApp no carrinho nem na página do produto.
 - **Cupons** (`/admin/cupons`): percentual ou valor fixo, validade, pedido mínimo e

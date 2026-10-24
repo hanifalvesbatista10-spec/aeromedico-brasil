@@ -16,13 +16,15 @@ export const cardClass =
 export const cardTitleClass =
   "mb-3.5 flex items-baseline justify-between gap-3 font-heading text-sm font-bold text-navy-950";
 
-export const cardNoteClass = "font-body text-xs font-normal text-[#6b7a96]";
+export const cardNoteClass = "font-body text-xs font-normal text-[#566580]";
 
 export const fieldClass = cn(
   "h-[34px] w-full min-w-0 rounded-[9px] border border-[#e1e6ef] bg-[#f6f8fb] px-[11px] text-[13px] text-navy-950",
   "shadow-[inset_0_1px_3px_rgba(14,20,33,0.14),0_1px_0_rgba(255,255,255,0.9),0_8px_16px_-10px_rgba(14,20,33,0.35)]",
-  "placeholder:text-[#8a97b0] focus-visible:border-navy-500 focus-visible:ring-[3px] focus-visible:ring-navy-500/20",
+  "placeholder:text-[#566580] focus-visible:border-navy-500 focus-visible:ring-[3px] focus-visible:ring-navy-500/20",
   "pointer-coarse:h-11 pointer-coarse:text-base",
+  // O `Input` base traz `outline-none`: sem `outline-solid` o contorno de foco nunca apareceria.
+  "focus-visible:outline-solid",
   focusRing
 );
 
@@ -135,7 +137,7 @@ export function ContinueShopping() {
   return (
     <Link
       href="/loja"
-      className="mt-3 block text-center text-[12.5px] text-[#9fb0d0] underline underline-offset-[3px] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      className="mt-3 block py-1 text-center text-[12.5px] text-[#9fb0d0] underline underline-offset-[3px] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white pointer-coarse:py-3"
     >
       Escolher mais produtos
     </Link>
@@ -150,7 +152,7 @@ const STEPS = ["Carrinho", "Entrega", "Pagamento"];
  */
 export function CartSteps({ current }: { current: 1 | 2 }) {
   return (
-    <ol aria-label="Etapas da compra" className="mb-5 flex items-center gap-2 text-xs text-[#6b7a96]">
+    <ol aria-label="Etapas da compra" className="mb-5 flex items-center gap-2 text-xs text-[#566580]">
       {STEPS.map((label, index) => {
         const number = index + 1;
         const active = number === current;
@@ -161,7 +163,7 @@ export function CartSteps({ current }: { current: 1 | 2 }) {
               aria-hidden="true"
               className={cn(
                 "grid size-5 place-items-center rounded-full text-[11px] font-bold",
-                number <= current ? "bg-navy-900 text-white" : "bg-[#e9edf4] text-[#6b7a96]"
+                number <= current ? "bg-navy-900 text-white" : "bg-[#e9edf4] text-[#566580]"
               )}
             >
               {number}

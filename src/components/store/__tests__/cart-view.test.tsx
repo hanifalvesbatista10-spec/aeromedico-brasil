@@ -360,7 +360,7 @@ describe("CartView com cupom", () => {
 
     await waitFor(() => expect(priceCartAction).toHaveBeenLastCalledWith([shirt(2)], "verao10"));
     expect(await screen.findByText("Cupom VERAO10 aplicado")).toBeTruthy();
-    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("-R$ 9,98");
+    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("− R$ 9,98");
     expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 89,82");
   });
 
@@ -376,7 +376,7 @@ describe("CartView com cupom", () => {
     priceCartAction.mockImplementationOnce(() => new Promise(() => {}));
     fireEvent.click(screen.getByRole("button", { name: "Aumentar quantidade de Camiseta Aeromédico, M, Preta" }));
 
-    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("-R$ 14,97");
+    expect(money(screen.getByTestId("cart-discount").textContent)).toContain("− R$ 14,97");
     expect(money(screen.getByTestId("cart-total").textContent)).toContain("R$ 134,73");
   });
 
@@ -944,5 +944,77 @@ describe("CartView: só pedido, sem WhatsApp", () => {
     await screen.findByText(/Boné/);
     expect(screen.getByText("Nenhum item disponível para finalizar.")).toBeTruthy();
     expect(screen.queryByTestId("cart-checkout")).toBeNull();
+  });
+});
+
+describe("CartView: frete que mudou no servidor", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  it("a lista de entrega passa a mostrar o preço novo, e escolher outra opção e voltar não desfaz", async () => {
+    quoteCheckoutAction.mockResolvedValueOnce({
+      ok: false,
+      code: "shipping-changed",
+      error: "O frete mudou para R$ 25,00. Confira o novo total e clique em Finalizar pedido de novo.",
+      newShippingCents: 2500,
+    });
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    seed([shirt(2)]);
+    fakeServer();
+    render(<CartView checkoutEnabled />);
+    await screen.findByText("Camiseta Aeromédico");
+    calculate();
+    const group = await screen.findByRole("group", { name: "Opções de entrega" });
+
+    await waitFor(() => expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 25,00"));
+    expect(money(group.textContent)).toContain("R$ 25,00");
+    expect(money(group.textContent)).not.toContain("R$ 23,45");
+
+    fireEvent.click(within(group).getAllByRole("radio")[1]);
+    expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 41,20");
+    fireEvent.click(within(group).getAllByRole("radio")[0]);
+    expect(money(screen.getByTestId("cart-shipping").textContent)).toContain("R$ 25,00");
+  });
+});
+
+describe("CartView: ajustes da revisão (acessibilidade e celular)", () => {
+  beforeEach(() => {
+    quoteShippingAction.mockReset();
+    quoteCheckoutAction.mockReset();
+    quoteCheckoutAction.mockResolvedValue(checkoutQuote);
+    quoteShippingAction.mockResolvedValue(quoteOk());
+  });
+
+  it("o campo de CEP tem rótulo visível (não só o texto de exemplo)", async () => {
+    await renderWithShirts();
+    const label = screen.getByText("CEP de entrega");
+    expect(label.className).not.toContain("sr-only");
+    expect((screen.getByLabelText("CEP de entrega") as HTMLInputElement).placeholder).toBe("00000-000");
+  });
+
+  it("vindo do mini-carrinho (#resumo-do-pedido), rola até o resumo quando o carrinho termina de carregar", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.location.hash = "#resumo-do-pedido";
+    try {
+      await renderWithShirts();
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+      expect(scrollIntoView.mock.instances[0]).toBe(document.getElementById("resumo-do-pedido"));
+    } finally {
+      window.location.hash = "";
+    }
+  });
+
+  it("o desconto do cupom usa o sinal de menos de verdade, igual ao do Pix", async () => {
+    seed([shirt(2)]);
+    fakeServer({}, { coupon: VERAO10 });
+    render(<CartView />);
+    await screen.findByText("Camiseta Aeromédico");
+    await applyCode();
+    await screen.findByText("Cupom VERAO10 aplicado");
+    expect(money(screen.getByTestId("cart-discount").textContent)).toMatch(/^− R\$ 9,98/);
   });
 });

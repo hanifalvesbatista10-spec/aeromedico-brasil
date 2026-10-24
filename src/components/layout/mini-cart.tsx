@@ -68,7 +68,7 @@ export function MiniCart({ lines, dismissed }: { lines: CartLine[]; dismissed: b
       data-testid="mini-cart"
       data-dismissed={String(dismissed)}
       className={cn(
-        "invisible absolute right-0 top-full z-50 w-[350px] max-w-[calc(100vw-2rem)] pt-2 opacity-0 transition duration-150",
+        "invisible absolute right-0 top-full z-50 w-[350px] max-w-[calc(100vw-4.5rem)] pt-2 opacity-0 transition duration-150 xl:max-w-[calc(100vw-2rem)]",
         "group-hover:visible group-hover:opacity-100 group-has-[:focus-visible]:visible group-has-[:focus-visible]:opacity-100",
         "data-[dismissed=true]:invisible! data-[dismissed=true]:opacity-0!"
       )}
@@ -93,13 +93,13 @@ export function MiniCart({ lines, dismissed }: { lines: CartLine[]; dismissed: b
             <p className="mb-3 flex items-baseline justify-between font-heading text-[13px] font-bold">
               Seu carrinho
               {state.status === "ready" && (
-                <small className="font-body text-xs font-normal text-[#6b7a96]">
+                <small className="font-body text-xs font-normal text-[#566580]">
                   {itemCount} {itemCount === 1 ? "item" : "itens"}
                 </small>
               )}
             </p>
 
-            {state.status === "loading" && <p className="py-3 text-sm text-[#6b7a96]">Carregando…</p>}
+            {state.status === "loading" && <p className="py-3 text-sm text-[#566580]">Carregando…</p>}
             {state.status === "error" && (
               <p className="py-3 text-sm text-red-800">Não foi possível carregar o carrinho agora.</p>
             )}
@@ -118,7 +118,7 @@ export function MiniCart({ lines, dismissed }: { lines: CartLine[]; dismissed: b
                       </div>
                       <div className="min-w-0 flex-1 text-[13px]">
                         <p className="truncate font-semibold">{line.name}</p>
-                        <p className="truncate text-xs text-[#6b7a96]">
+                        <p className="truncate text-xs text-[#566580]">
                           {[line.size, line.colorName].filter(Boolean).join(" · ")}
                           {(line.size || line.colorName) && " · "}
                           {line.quantity} × {formatBRL(line.unitPriceCents)}
@@ -131,15 +131,15 @@ export function MiniCart({ lines, dismissed }: { lines: CartLine[]; dismissed: b
                   ))}
                 </ul>
                 {hidden > 0 && (
-                  <p className="pt-2 text-xs text-[#6b7a96]">
+                  <p className="pt-2 text-xs text-[#566580]">
                     e mais {hidden} {hidden === 1 ? "item" : "itens"}
                   </p>
                 )}
-                <div className="flex items-baseline justify-between pb-1 pt-3 text-[13px] text-[#6b7a96]">
+                <div className="flex items-baseline justify-between pb-1 pt-3 text-[13px] text-[#566580]">
                   <span>Subtotal</span>
                   <b className="font-heading text-lg tabular-nums text-navy-950">{formatBRL(subtotalCents)}</b>
                 </div>
-                <p className="mb-3 text-[11.5px] text-[#6b7a96]">Frete e desconto do Pix são calculados no carrinho.</p>
+                <p className="mb-3 text-[11.5px] text-[#566580]">Frete e desconto do Pix são calculados no carrinho.</p>
               </>
             )}
 

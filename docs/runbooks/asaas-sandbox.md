@@ -10,7 +10,7 @@ token e coloca na Vercel. Nunca cole chave, token ou segredo em chat, issue ou G
 
 ## O que faz o pagamento aparecer no carrinho
 
-O botão "Pagar" só aparece quando **todas** estas variáveis existem (função `isCheckoutEnabled`):
+O botão "Finalizar pedido" só aparece quando **todas** estas variáveis existem (função `isCheckoutEnabled`):
 
 | Variável | O que é |
 |---|---|

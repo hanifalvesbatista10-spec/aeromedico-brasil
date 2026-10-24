@@ -137,7 +137,7 @@ export async function computeCheckoutQuote(
   if (option.priceCents !== selection.shipping.expectedCents) {
     return fail(
       "shipping-changed",
-      `O frete mudou para ${formatBRL(option.priceCents)}. Confira o novo total e clique em Pagar de novo.`,
+      `O frete mudou para ${formatBRL(option.priceCents)}. Confira o novo total e clique em Finalizar pedido de novo.`,
       { newShippingCents: option.priceCents }
     );
   }
@@ -156,7 +156,7 @@ export async function computeCheckoutQuote(
   ) {
     return fail(
       "price-changed",
-      `O total do pedido mudou para ${formatBRL(chosen.totalCents)}. Se estiver de acordo, clique em Pagar de novo.`,
+      `O total do pedido mudou para ${formatBRL(chosen.totalCents)}. Se estiver de acordo, clique em Finalizar pedido de novo.`,
       { newTotalCents: chosen.totalCents }
     );
   }
